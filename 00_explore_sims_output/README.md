@@ -16,7 +16,7 @@ __01_train_gradient_forests.ipynb__
 - convert simulation files to files neccessary to train Gradient Forests (v0.1-18, [Ellis et al. 2012](https://dx.doi.org/10.1890/11-0252.1) *sensu* [Fitzpatrick & Keller 2015](https://doi.org/10.1111/ele.12376)) using training script from Lind et al. (TODO: LINK).
   -  the files created for pooled data will be used to train RONA (`04_train_RONA.ipynb`).
 
-- create infiles by using individual data (counts of minor allele) or by calculating population-level allele frequencies (ie pooled). For each individual and pooled, create infiles using the whole set up simulated SNPs as well as a set that only includes the loci underlying adaptation.
+- create infiles by using individual data (counts of minor allele) or by calculating population-level allele frequencies of the global minor allele (ie pooled). For each individual and pooled, create infiles using the whole set up simulated SNPs as well as a set that only includes the loci underlying adaptation.
 
 - sbatch files to server for training
 
