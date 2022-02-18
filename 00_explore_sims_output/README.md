@@ -5,7 +5,7 @@ Code used to develop production code for processessing simulations for the Model
 ---
 ### Repository Structure
 
-Below are descriptions of the notebooks and scripts in this repo (scripts are used within notebooks). These can be viewed on GitHub but hyperlinks within notebooks won't work. Once we reach production stage, we can link the notebooks to nbviewer.org.
+Below are descriptions of the notebooks and scripts in this repo (scripts are used within notebooks). These can be viewed on GitHub but hyperlinks within notebooks won't work. Once we reach production stage, we can link the notebooks to nbviewer.org. For now I would recommend cloning and `jupyter nbconvert --to html *ipynb` within the repo and view in a browser.
 
 I'll likely develop production scripts from these notebooks, where we take code from these notebooks and put into a script to run on each simulation seed (we can run these scripts within notebooks for record keeping).
 
