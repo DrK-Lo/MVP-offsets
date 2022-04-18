@@ -120,9 +120,7 @@ def create_scatter_map(rona, fitness, locations, envdata):
     garden_slopes = defaultdict(dict)  # slope of relationship between fitness and RONA
     source_slopes = defaultdict(dict)  # slope of relationship between fitness and RONA
 
-    for env in keys(rona):
-        # plot performance
-        ronadf = pd.DataFrame(rona[env])
+    for env,ronadf in rona.items():
         # color for the environment (temp_opt) of source_pop - TODO: infer selected envs from data
         colormap = 'Reds' if env=='temp_opt' else 'Blues_r'
         cmap = plt.cm.get_cmap(colormap)
@@ -133,7 +131,7 @@ def create_scatter_map(rona, fitness, locations, envdata):
         # garden performance
         for garden in pbar(fitness.index, desc=f'{env} garden performance'):
             # retrieve rona for this garden
-            ronadata = pd.Series(rona[env][garden], dtype=float)
+            ronadata = pd.Series(ronadf[garden], dtype=float)
             
             # record squared spearman's rho
             garden_performance[env][garden] = ronadata.corr(fitness.loc[garden],
@@ -146,8 +144,8 @@ def create_scatter_map(rona, fitness, locations, envdata):
         for source_pop in pbar(fitness.columns, desc=f'{env} population performance'):
             # retrieve rona for this pop
             ronadata = pd.Series(dtype=float)
-            for garden in rona[env]:
-                ronadata.loc[garden] = rona[env][garden][source_pop]
+            for garden in ronadf:
+                ronadata.loc[garden] = ronadf[garden][source_pop]
             
             # record squared spearman's rho
             source_performance[env][source_pop] = ronadata.corr(fitness[source_pop],
@@ -173,9 +171,9 @@ def blank_dataframe():
     return df_dict
 
 
-def fill_heatmaps(garden_performance, source_performance, garden_slopes, source_slopes, locations):
+def fill_heatmaps(garden_performance, source_performance, garden_slopes, source_slopes, locations, marker_set):
     """Create dataframe maps to hold information about each garden or source pop using pop coordinates."""
-    print(ColorText('\nCreating heatmaps ...').bold().custom('gold'))
+    print(ColorText('\n\tCreating heatmaps ...').bold().custom('gold'))
     # create empty dataframes to fill in as heatmaps
     garden_heat = blank_dataframe()
     garden_slope_heat = blank_dataframe()
@@ -183,7 +181,7 @@ def fill_heatmaps(garden_performance, source_performance, garden_slopes, source_
     source_slope_heat = blank_dataframe()
 
     # fill out heat maps
-    print('\tfilling out heatmaps ...')
+    print('\t\tfilling out heatmaps ...')
     for env in source_performance.keys():
         for source_pop,performance in source_performance[env].items():
             x,y = locations.loc[source_pop]
@@ -201,7 +199,7 @@ def fill_heatmaps(garden_performance, source_performance, garden_slopes, source_
             garden_slope_heat[env].loc[y, x] = garden_slopes[env][source_pop]
 
     # create figs that show the perforance across pops for each garden
-    print('\tsaving heatmaps for performance of transplanted pops within garden ...')
+    print('\t\tsaving heatmaps for performance of transplanted pops within garden ...')
     for env,heatmap in garden_heat.items():
         _ = sns.heatmap(heatmap,
                         cmap='viridis',
@@ -211,7 +209,7 @@ def fill_heatmaps(garden_performance, source_performance, garden_slopes, source_
         plt.xlabel('Longitude (x)')
         plt.ylabel('Latitude (y)')
         
-        save_pdf(op.join(fig_dir, f'{seed}_garden_performance_heatmap-{env}.pdf'))
+        save_pdf(op.join(fig_dir, f'{seed}_{marker_set}_garden_performance_heatmap-{env}.pdf'))
         
         plt.show()
 
@@ -226,7 +224,7 @@ def fill_heatmaps(garden_performance, source_performance, garden_slopes, source_
         plt.xlabel('Longitude (x)')
         plt.ylabel('Latitude (y)')
         
-        save_pdf(op.join(fig_dir, f'{seed}_source_performance_heatmap-{env}.pdf'))
+        save_pdf(op.join(fig_dir, f'{seed}_{marker_set}_source_performance_heatmap-{env}.pdf'))
         
         plt.show()
 
@@ -235,14 +233,14 @@ def fill_heatmaps(garden_performance, source_performance, garden_slopes, source_
         '\t\nsaving heatmaps for the slope of relationship between fitness ~ RONA at each garden for each env ...'
     )
     for env,heatmap in garden_slope_heat.items():
-        _ = sns.heatmap(heatmap.abs(),
+        _ = sns.heatmap(heatmap,
                         cmap='viridis',
-                        cbar_kws={'label': "abs slope of fitness ~ RONA"})
+                        cbar_kws={'label': "slope of fitness ~ RONA"})
         plt.title(f'slope in garden for {env = }')
         plt.xlabel('Longitude (x)')
         plt.ylabel('Latitude (y)')
         
-        save_pdf(op.join(fig_dir, f'{seed}_garden_slope_heatmap-{env}.pdf'))
+        save_pdf(op.join(fig_dir, f'{seed}_{marker_set}_garden_slope_heatmap-{env}.pdf'))
         
         plt.show()
 
@@ -251,67 +249,71 @@ def fill_heatmaps(garden_performance, source_performance, garden_slopes, source_
         '\t\nsaving heatmaps for the slope of relationship between fitness ~ RONA for each source pop across gardens for each env ...'
     )
     for env,heatmap in source_slope_heat.items():
-        _ = sns.heatmap(heatmap.abs(),
+        _ = sns.heatmap(heatmap,
                         cmap='viridis',
                         cbar_kws={'label': "slope of fitness ~ RONA"})
         plt.title(f'slope across garden for {env = }')
         plt.xlabel('Longitude (x)')
         plt.ylabel('Latitude (y)')
         
-        save_pdf(op.join(fig_dir, f'{seed}_source_slope_heatmap-{env}.pdf'))
+        save_pdf(op.join(fig_dir, f'{seed}_{marker_set}_source_slope_heatmap-{env}.pdf'))
         
         plt.show()
 
     return garden_heat, source_heat, garden_slope_heat, source_slope_heat
 
-def save_objects(garden_heat, source_heat, garden_slope_heat, source_slope_heat):
+def save_objects(garden_heat, source_heat, garden_slope_heat, source_slope_heat, marker_set):
     """Save heatmap objects."""
     print(ColorText('\nSaving heatmap objects ...').bold().custom('gold'))
     for env,heatmap in source_heat.items():
-        heatfile = op.join(heat_dir, f'{seed}_source_performance_heatmap-{env}.txt')
+        heatfile = op.join(heat_dir, f'{seed}_{marker_set}_source_performance_heatmap-{env}.txt')
         heatmap.to_csv(heatfile, sep='\t', index=True)
-        print('\t', heatfile)
+        print('\t\t', heatfile)
         
     print(' ')
         
     for env,heatmap in garden_heat.items():
-        heatfile = op.join(heat_dir, f'{seed}_garden_performance_heatmap-{env}.txt')
+        heatfile = op.join(heat_dir, f'{seed}_{marker_set}_garden_performance_heatmap-{env}.txt')
         heatmap.to_csv(heatfile, sep='\t', index=True)
-        print('\t', heatfile)
+        print('\t\t', heatfile)
         
     print(' ')
         
     for env,heatmap in source_slope_heat.items():
-        heatfile = op.join(heat_dir, f'{seed}_source_slope_heatmap-{env}.txt')
+        heatfile = op.join(heat_dir, f'{seed}_{marker_set}_source_slope_heatmap-{env}.txt')
         heatmap.to_csv(heatfile, sep='\t', index=True)
-        print('\t', heatfile)
+        print('\t\t', heatfile)
         
     print(' ')
         
     for env,heatmap in garden_slope_heat.items():
-        heatfile = op.join(heat_dir, f'{seed}_garden_slope_heatmap-{env}.txt')
+        heatfile = op.join(heat_dir, f'{seed}_{marker_set}_garden_slope_heatmap-{env}.txt')
         heatmap.to_csv(heatfile, sep='\t', index=True)
-        print('\t', heatfile)
+        print('\t\t', heatfile)
     
     pass
 
+
 def main():
-    # load RONA estimates
-    rona = pklload(op.join(rona_outdir, f'{seed}_RONA_results.pkl'))
+    for marker_set in ['all', 'adaptive']:
+        print(ColorText(f'\nValidating RONA using {marker_set} loci ...').bold().custom('gold'))
+        
+        # load RONA estimates
+        rona = pklload(op.join(rona_outdir, f'{seed}_{marker_set}_RONA_results.pkl'))
 
-    # get pop data
-    print(ColorText('\nGetting population information ...').bold().custom('gold'))
-    fitness = load_pooled_fitness_matrix(slimdir, seed)
-    subset, locations, envdata = get_pop_data()
+        # get pop data
+        print(ColorText('\n\tGetting population information ...').bold().custom('gold'))
+        fitness = load_pooled_fitness_matrix(slimdir, seed)
+        subset, locations, envdata = get_pop_data(slimdir, seed)
 
-    # plot relationship between fitness and RONA for each subpopID on a map of subpops
-    data = create_scatter_map(rona, fitness, locations, envdata)
+        # plot relationship between fitness and RONA for each subpopID on a map of subpops
+        data = create_scatter_map(rona, fitness, locations, envdata)
 
-    # create heatmaps for performance and slope of relationship between fitness and RONA
-    heatmap_objects = fill_heatmaps(*data, locations)
+        # create heatmaps for performance and slope of relationship between fitness and RONA
+        heatmap_objects = fill_heatmaps(*data, locations, marker_set)
 
-    # save the objects in case we ever want them
-    save_objects(*heatmap_objects)
+        # save the objects in case we ever want them
+        save_objects(*heatmap_objects, marker_set)
 
     # done
     print(ColorText(f'\ntime to complete: {formatclock(dt.now() - t1, exact=True)}'))
