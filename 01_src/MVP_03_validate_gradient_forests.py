@@ -373,8 +373,12 @@ def fig_wrapper(offset_dfs, fitness_mat, locations, samppop, envdata, popsamps):
         plt.close()
 
         # 3.3 create heatmap
-        pkldump(individual_performance[ind_or_pooled][adaptive_or_all], '/work/lotterhos/MVP-Offsets/mypractice_20210308/gradient_forests/corrs.pkl')
-        pkldump(samppop, '/work/lotterhos/MVP-Offsets/mypractice_20210308/gradient_forests/samppop.pkl')
+        pkldump(
+            individual_performance[ind_or_pooled][adaptive_or_all],
+            op.join(validation_dir, 
+                    f'{seed}_{ind_or_pooled}_{adaptive_or_all}_corrs.pkl')
+        )
+#         pkldump(samppop, '/work/lotterhos/MVP-Offsets/mypractice_20210308/gradient_forests/samppop.pkl')
         create_heatmap(individual_performance[ind_or_pooled][adaptive_or_all],
                        ind_or_pooled,
                        adaptive_or_all,
@@ -430,6 +434,7 @@ if __name__ == '__main__':
     fitting_dir = op.join(gf_parentdir, 'fitting/fitting_outfiles')
     training_outdir = op.join(gf_parentdir, 'training/training_outfiles')
     fig_dir = makedir(op.join(gf_parentdir, 'validation/figs'))
+    validation_dir = op.dirname(fig_dir)
     
     # set global variables needed for `mvp5.color` and `mvp5.garden_performance_scatter`
     norm=Normalize(vmin=-1.0, vmax=1.0)
