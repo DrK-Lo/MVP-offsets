@@ -37,8 +37,9 @@ def make_gf_dirs(outerdir) -> tuple:
     training_filedir = makedir(op.join(directory, 'training/training_files'))
     shdir = makedir(op.join(directory, 'training/training_shfiles'))
     outfile_dir = makedir(op.join(directory, 'training/training_outfiles'))
+    fitting_shdir = makedir(op.join(directory, 'fitting/fitting_shfiles'))
 
-    return training_filedir, shdir, outfile_dir
+    return training_filedir, shdir, outfile_dir, fitting_shdir
 
 
 def read_ind_data(slimdir, seed) -> pd.DataFrame:
@@ -286,6 +287,7 @@ def create_pop_freqs(subset, z12file):
     freqs.to_csv(gf_snp_files['pooled']['all'],
                    sep='\t',
                    index=False)
+
     # save for RONA
     rona_file = gf_snp_files['pooled']['all'].replace("_GFready_", "_RONAready_").replace('/gradient_forests/', '/RONA/')
     makedir(op.dirname(rona_file))
@@ -355,6 +357,11 @@ def subset_adaptive_loci(muts, gf_snps, freqs):
     locus_file = op.join(training_filedir, f'{seed}_adaptive_loci.pkl')
     pkldump(adaptive_loci, locus_file)
     print(f'adaptive loci file = {locus_file}')
+    # symlink for RONA
+    try:
+        os.symlink(locus_file, locus_file.replace('/gradient_forests/', '/RONA/'))
+    except FileExistsError as e:
+        pass
 
     # subset Gradient Forest training data and save
     adaptive_gf_snps = gf_snps[list(adaptive_loci) + ['index']].copy()
@@ -385,11 +392,14 @@ def subset_adaptive_loci(muts, gf_snps, freqs):
 
 
 def create_training_shfiles():
-    mytime = {'ind': {'all': '7-00:00:00', 'adaptive': '1:00:00'},
+    mytime = {'ind': {'all': '5-00:00:00', 'adaptive': '1:00:00'},
               'pooled': {'all': '23:00:00', 'adaptive': '1:00:00'}}
 
-    mymem = {'ind': {'all': '25000M', 'adaptive': '4000M'},
-             'pooled': {'all': '150000M', 'adaptive': '4000M'}}
+    mymem = {'ind': {'all': '600000M', 'adaptive': '4000M'},
+             'pooled': {'all': '300000M', 'adaptive': '4000M'}}
+    
+    partition = wrap_defaultdict(lambda: 'short', 2)
+    partition['ind']['all'] = 'long'
 
     shfiles = []
     for ind_or_pooled in ['ind', 'pooled']:
@@ -400,6 +410,7 @@ def create_training_shfiles():
             # set up variables
             _time = mytime[ind_or_pooled][all_or_adaptive]
             _mem = mymem[ind_or_pooled][all_or_adaptive]
+            _partition = partition[ind_or_pooled][all_or_adaptive]
             _snpfile = op.basename(gf_snp_files[ind_or_pooled][all_or_adaptive])
             _envfile = op.basename(gf_env_files[ind_or_pooled])
             _rangefile = op.basename(gf_range_files[ind_or_pooled])
@@ -408,6 +419,7 @@ def create_training_shfiles():
 #SBATCH --job-name={basename}
 #SBATCH --time={_time}
 #SBATCH --mem={_mem}
+#SBATCH --partition={_partition}
 #SBATCH --output={basename}_%j.out
 #SBATCH --mail-user={email}
 #SBATCH --mail-type=FAIL
@@ -437,7 +449,7 @@ cd {training_filedir}
 
 def main():
     # get the individuals that were subsampled from full simulation
-    subset = read_ind_data(slimdir)
+    subset = read_ind_data(slimdir, seed)
 
     # read in the seed_Rout_muts_full.txt file, convert `VCFrow` to 0-based, name loci
     muts = read_muts_file()
@@ -463,7 +475,20 @@ def main():
     # sbatch training files, create job to email once training jobs complete
     print(ColorText('\nSubmitting training scripts to slurm ...').bold().custom('gold'))
     pids = sbatch(shfiles[::-1])  # reverse sbatching so I can avoid sbatching individual-all training sets
-    create_watcherfile(pids, shdir, 'gf_training_watcher', email)
+#     create_watcherfile(pids, shdir, 'gf_training_watcher', email)  # TODO change to fitting
+
+    # sbatch jobs to fit GF models to common garden climates, then to validate GF
+    shtext = '\n'.join(['cd /home/b.lind/code/MVP-offsets/01_src', '',
+                        'source $HOME/.bashrc', '',
+                        f'python MVP_02_fit_gradient_forests.py {seed} {slimdir} {outfile_dir} {rscript}', '',
+                        f'python MVP_03_validate_gradient_forests.py {seed} {slimdir} {outdir}/gradient_forests', ''
+                       ])
+
+    create_watcherfile(pids, fitting_shdir, watcher_name=f'{seed}_gf_fitting', time='3:00:00', ntasks=1,
+                       rem_flags = ['#SBATCH --nodes=1', '#SBATCH --cpus-per-task=7'],
+                       mem='200000M', begin_alert=True,
+                       added_text=shtext)
+#     create_watcherfile(pids, fitting_shdir, f'{seed}_gf_fitting', email)  # TODO change to fitting
 
     print(ColorText('\nShutting down engines ...').bold().custom('gold'))
     print(ColorText(f'\ntime to complete: {formatclock(dt.now() - t1, exact=True)}'))
@@ -477,7 +502,7 @@ if __name__ == '__main__':
     thisfile, seed, slimdir, outdir, num_engines, rscript, imports_dir, email = sys.argv
 
     print(ColorText(f'\nStarting {op.basename(thisfile)} ...').bold().custom('gold'))
-    training_script = op.join(op.dirname(thisfile), 'MVP_gf_training_script.R')
+    training_script = op.join(op.dirname(op.abspath(thisfile)), 'MVP_gf_training_script.R')
 
     # set up timer
     t1 = dt.now()
@@ -488,7 +513,7 @@ if __name__ == '__main__':
     gf_env_files = defaultdict(dict)
 
     # create dirs
-    training_filedir, shdir, outfile_dir = make_gf_dirs(outdir)
+    training_filedir, shdir, outfile_dir, fitting_shdir = make_gf_dirs(outdir)
 
     # start cluster
     print(ColorText('\nStarting engines ...').bold().custom('gold'))
