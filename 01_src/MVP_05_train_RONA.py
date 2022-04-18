@@ -63,12 +63,12 @@ def calculate_linear_models(seed):
 
     # calculate linear models in parallel
     jobs = parallel_read(freqfile,
-                        lview=lview,
-                        dview=dview,
-                        functions=create_fundict(train),
-                        verbose=False,
-                        maintain_dataframe=False,
-                        index_col=0)
+                         lview=lview,
+                         dview=dview,
+                         functions=create_fundict(train),
+                         verbose=False,
+                         maintain_dataframe=False,
+                         index_col=0)
 
     # gather results
     results = defaultdict(dict)
@@ -154,12 +154,12 @@ def scatter_rona_elements(freqfile):
     )
     # calculate rona elements in parallel
     jobs = parallel_read(freqfile,
-                        lview=lview,
-                        dview=dview,
-                        verbose=False,
-                        index_col=0,
-                        functions=create_fundict(get_rona_elements),
-                        maintain_dataframe=False)
+                         lview=lview,
+                         dview=dview,
+                         verbose=False,
+                         index_col=0,
+                         functions=create_fundict(get_rona_elements),
+                         maintain_dataframe=False)
 
     # gather elements
     rona_elements = wrap_defaultdict(dict, 3)
@@ -173,12 +173,18 @@ def scatter_rona_elements(freqfile):
     return rona_elements
 
 
-def calculate_rona(rona_elements, sig_models):
+def calculate_rona(rona_elements, sig_models, use_adaptive=False):
     """Calculate the real rona by summing and averaging elements."""
-    print(ColorText('\nCalculating RONA ...').bold().custom('gold'))
+    marker_set = 'adaptive' if use_adaptive is True else 'all'
+    print(f'using {marker_set} loci ...')
+    
     rona = wrap_defaultdict(None, 3)  # one RONA per pop per climate
     rona_loci_counts = wrap_defaultdict(None, 3)
     all_counts = wrap_defaultdict(list, 2)
+    
+    if use_adaptive is True:
+        adaptive_pkl = op.join(rona_training_dir, f'{seed}_adaptive_loci.pkl')  # from MVP_01.py
+        adaptive_loci = pklload(adaptive_pkl)
 
     for env,gardendict in rona_elements.items():
         for garden,popdict in pbar(gardendict.items(), desc=env):
@@ -186,7 +192,7 @@ def calculate_rona(rona_elements, sig_models):
                 # make sure I got what I was expecting to get - number of loci with sig linear models
                 assert len(elementdict) == len(sig_models[env])
 
-                # for each group of loci, calc RONA by according to equation above by 
+                # for each group of loci, calc RONA by according to equation in Rellstab et al. (2016) by 
                     # averaging rona_elements while accounting for missing data
                 
                 # get all of the typical summation elements for loci within `sig_models[env]` that have sig models
@@ -194,6 +200,9 @@ def calculate_rona(rona_elements, sig_models):
                 interloci = set(sig_models[env]).intersection(elementdict.keys())
                 assert len(interloci) == len(sig_models[env]) == len(elementdict.keys())
                 
+                if use_adaptive is True:
+                    interloci = set(interloci).intersection(adaptive_loci)
+
                 elements = [elementdict[locus] for locus in interloci]
                 if sum(el==el for el in elements) > 0:
                     # if at least one instance of non-np.nan data:
@@ -210,10 +219,12 @@ def calculate_rona(rona_elements, sig_models):
                 all_counts[garden][env].append(interloci)
 
     # save RONA results
-    rona_file = op.join(rona_outdir, f'{seed}_RONA_results.pkl')
+    rona_file = op.join(rona_outdir, f'{seed}_{marker_set}_RONA_results.pkl')
     pkldump(rona, rona_file)
 
-    print('\tsaved RONA results to: ', rona_file)
+    print('\tsaved RONA results to: ', rona_file, '\n')
+    
+    pass
 
 
 def main():
@@ -237,7 +248,9 @@ def main():
     rona_elements = scatter_rona_elements(freqfile)
 
     # calculate RONA according to equation from Rellstab et al. 2016
-    calculate_rona(rona_elements, sig_models)
+    print(ColorText('\nCalculating RONA for each common garden ...').bold().custom('gold'))
+    for use_adaptive in [True, False]:
+        calculate_rona(rona_elements, sig_models, use_adaptive)
 
     # done
     print(ColorText('\nShutting down engines ...').bold().custom('gold'))
