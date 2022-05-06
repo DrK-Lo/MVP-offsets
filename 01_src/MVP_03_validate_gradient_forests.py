@@ -318,7 +318,7 @@ def fig_wrapper(offset_dfs, fitness_mat, locations, samppop, envdata, popsamps):
         # 2.1 squared spearman's correlation coefficient (val) for each garden (key)
         garden_performance[ind_or_pooled][adaptive_or_all] = offset.corrwith(fitness,
                                                                              axis='columns',  # across columns for each row
-                                                                             method='spearman') ** 2
+                                                                             method='spearman')
         # 2.2 plot histogram
         garden_performance[ind_or_pooled][adaptive_or_all].hist()
         title = f'{seed}\ngarden performance\ndata={ind_or_pooled} loci={adaptive_or_all}'
@@ -359,7 +359,7 @@ def fig_wrapper(offset_dfs, fitness_mat, locations, samppop, envdata, popsamps):
         # 3 - SAMPLE-LEVEL PERFORMACE - how well performace was predicted for the sample across gardens
         # 3.1 squared spearman's correlation coefficient for each individual or pool
         individual_performance[ind_or_pooled][adaptive_or_all] = offset.corrwith(fitness,                                                                                axis='index', # across rows for each column
-                                                                                 method='spearman') ** 2
+                                                                                 method='spearman')
         
         # 3.2 plot histogram
         individual_performance[ind_or_pooled][adaptive_or_all].hist()
