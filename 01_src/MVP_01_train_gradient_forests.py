@@ -28,9 +28,10 @@ TODO
 - create code to create .txt file from vcf file
 """
 from pythonimports import *
+import pandas._libs.lib as lib
 
 
-def make_gf_dirs(outerdir) -> tuple:
+def make_gf_dirs(outerdir):
     """Create some dirs to put infiles, outfiles, and figs into."""
     print(ColorText('\nCreating directories ...').bold().custom('gold'))
     directory = makedir(op.join(outerdir, 'gradient_forests'))
@@ -42,32 +43,17 @@ def make_gf_dirs(outerdir) -> tuple:
     return training_filedir, shdir, outfile_dir, fitting_shdir
 
 
-def read_ind_data(slimdir, seed) -> pd.DataFrame:
+def read_ind_data(slimdir, seed):
     """Get the individuals that were subsampled from full simulation."""
     print(ColorText('\nReading in info for subsampled individuals ...').bold().custom('gold'))
     subset = pd.read_table(op.join(slimdir, f'{seed}_Rout_ind_subset.txt'), delim_whitespace=True)
-    subset.index = ('i' + subset['indID'].astype(str)).tolist()  # this will match to the 'causal' file
+    subset.index = subset['indID'].astype(str).tolist()
     subset['sample_name'] = subset.index.tolist()
 
     return subset
 
 
-def update_locus(locus: str, locus_list: list) -> str:
-    """Since sims can simulate mutations at same 'locus', create new name for duplicate loci names."""
-    matches = []
-    for name in locus_list:
-        prefix, *suffix = name.split('_')  # only my update loci names will have an underscore
-        if prefix == locus:
-            matches.append(name)
-
-    if len(matches) > 0:
-        # update locus name if there are duplicates
-        locus = f'{locus}_{len(matches)+1}'
-
-    return locus
-
-
-def read_muts_file() -> pd.DataFrame:
+def read_muts_file():
     """Read in the seed_Rout_muts_full.txt file, convert `VCFrow` to 0-based, name loci."""
     print(ColorText('\nReading muts file ...').bold().custom('gold'))
     # get path to file
@@ -76,23 +62,8 @@ def read_muts_file() -> pd.DataFrame:
     # read in the table
     muts = pd.read_table(muts_file, delim_whitespace=True, low_memory=False)  # low_memory to avoid mixed dtypes warning
 
-    # convert to 0-based indexing for python
-    assert 0 not in muts['VCFrow'].tolist()
-    muts['VCFrow'] = muts['VCFrow'] - 1  # convert to 0-based python
-
-    # update locus names
-    found = []
-    for row in muts.index:
-        locus = 'LG' + \
-                muts.loc[row, 'LG'].astype(int).astype(str) + \
-                '-' + \
-                muts.loc[row, 'pos_pyslim'].astype(int).astype(str)
-        if locus in found:
-            locus = update_locus(locus, found)
-        found.append(locus)
-
     # update index with locus names
-    muts.index = found
+    muts.index = muts['mutname'].tolist()
 
     # make sure no duplicate locus names remain
     assert luni(muts.index) == nrow(muts)
@@ -100,75 +71,8 @@ def read_muts_file() -> pd.DataFrame:
     return muts
 
 
-def convert_012(df: pd.DataFrame, inds: list) -> pd.DataFrame:
-    """Convert individual names to i-format, genotypes to counts of minor allele, and subset for `inds`.
-
-    Parameters
-    ----------
-    - df : pandas.DataFrame from a file of type seed_plusneut_MAF01.recode2.vcf.txt
-    - inds : list of i-formatted sample names (eg i0, i1, i2) to filter from full VCF; these are the 
-        individuals that were subsampled from the full simulation.
-    """
-    from collections import Counter
-    from tqdm import tqdm as pbar  # progress bar
-    from pythonimports import flatten
-
-    # first convert sample names (change eg tsk_0 to i0; tsk_25 to i25)
-    firstcols = []
-    newcols = []
-    for col in df.columns:
-        if col.startswith('tsk_'):
-            col = col.replace('tsk_', 'i')  # convert to eg i0, i1, i2 ...
-        else:
-            firstcols.append(col)
-        newcols.append(col)
-    df.columns = newcols
-
-    # subset for inds in `inds`
-    df = df[firstcols + inds]
-
-    # assert genotype convention = that all genotypes for each individual contain "|"
-    assert all(  # assert for all individuals
-        df[inds].apply(
-            lambda gts: all(['|' in gt for gt in gts]),  # all genotypes contain "|"
-            axis=1
-        )
-    )
-
-    # figure out minor allele counts for each individual and across all individuals
-    for locus in pbar(df.index, desc='determining minor allele'):
-        # count each allele across all samples for `locus`
-        allele_counts = Counter(
-            flatten(
-                [list(gt.replace("|", "")) for gt in df.loc[locus, inds]]  # technically don't need to replace |
-            )
-        )
-
-        # identify minor allele
-        if allele_counts['0'] < allele_counts['1']:
-            minor_allele = '0'
-        else:
-            minor_allele = '1'
-
-        # get minor allele counts for each individual
-        df.loc[locus, inds] = [gt.count(minor_allele) for gt in df.loc[locus, inds]]
-
-        # calculate MAF and AF
-        df.loc[locus, 'MAF'] = allele_counts[minor_allele] / (2*len(inds))
-        df.loc[locus, 'AF'] = allele_counts['1'] / (2*len(inds))  # '1' is ALT/derived allele
-
-    # replace metadata
-    df.loc[df.index, 'FORMAT'] = 'minor_allele_count'
-
-    # assert expectations
-    assert max(df['MAF']) <= 0.50
-    assert all((0 <= df['AF']) & (df['AF'] <= 1))
-
-    return df
-
-
-def save_gf_snpfile(snps, subset, snpfile) -> pd.DataFrame:
-    """Format ans save snp data for gradient forests training script from Lind et al."""
+def save_gf_snpfile(snps, subset, z12file):
+    """Format and save snp data for gradient forests training script from Lind et al."""
     # transpose so rows=individuals, columns=loci
     gf_snps = snps[subset.index.tolist()].T.copy()  # remove non-individual columns
 
@@ -177,82 +81,116 @@ def save_gf_snpfile(snps, subset, snpfile) -> pd.DataFrame:
 
     # save
     gf_snp_files['ind']['all'] = op.join(training_filedir,
-                                         op.basename(snpfile).replace('.txt', '_GFready_ind_all.txt'))
+                                         op.basename(z12file).replace('.txt', '_GFready_ind_all.txt'))
 
     gf_snps.to_csv(gf_snp_files['ind']['all'],
                    index=False,
                    sep='\t')
 
-    print(gf_snp_files['ind']['all'])
+    print('\nsaved individual input to GF training script to:')
+    print('\t', gf_snp_files['ind']['all'])
 
     return gf_snps
 
 
-def get_012(muts, subset) -> pd.DataFrame:
-    """Get genotypes from vcf, convert to counts of global minor allele (012) in parallel."""
+def calc_maf(locus):
+    """From a series of individual counts of derived alleles, calculate minor allele frequency."""
+    z12_counts = Counter(locus.astype(int))
+    
+    allele_counts = {
+        'derived' : (2 * z12_counts[2]) + z12_counts[1],
+        'ancestral' : (2 * z12_counts[0]) + z12_counts[1]
+    }
+    
+    try:
+        assert 2 * sum(z12_counts.values()) == sum(allele_counts.values())
+    except AssertionError as e:
+        print(z12_counts)
+        print(allele_counts)
+        print(sum(z12_counts.values()) , sum(allele_counts.values()))
+        raise e
+    
+    minor_allele = 'derived' if allele_counts['derived'] <= allele_counts['ancestral'] else 'ancestral'
+    
+    maf = allele_counts[minor_allele]  / sum(allele_counts.values())
+    
+    return maf
+
+
+def get_012(subset):
+    """Get genotypes in 012 format (counts of derived allele), filter for MAF.
+    
+    Returns
+    -------
+    dataframe as would be read in by original `snpfile`
+        except:
+            - filtered for MAF < 0.01 (see Notes)
+            - transposed so rows=individuals, columns=loci (see `save_gf_snpfile`)
+            - an added column called 'index' (see `save_gf_snpfile`)
+    
+    Notes
+    -----
+    filtering for MAF should be redundant as the input file `snpfile` should already be filtered
+        but as of this version, only AF < 0.01 had been filtered
+    """
     print(
         ColorText(
-            '\nConverting genotypes to counts of global minor allele using parallel engines ...'
+            '\nGetting 012 data ...'
         ).bold().custom('gold')
     )
-    # map VCF index to locus name so we can assign locus names to the vcf.txt file
-    vcf_index_to_locus = defaultdict(lambda: 'no_name')
-    vcf_index_to_locus.update(
-        dict(zip(muts['VCFrow'], muts.index))
-    )
 
-    # update function to apply during parallelization
-    functions = create_fundict(convert_012,
-                               kwargs={'inds': subset.index.tolist()})
+    # read in the dataframe with individual counts of derived allele
+    snpfile = op.join(slimdir, f'{seed}_Rout_Gmat_sample.txt')
+    snps = pd.read_table(snpfile, delim_whitespace=True)
+    
+    # calculate MAF, remove low frequency SNPs from dataset
+    tqdm.pandas(desc='calculating MAF')
+    snps['maf'] = snps.progress_apply(lambda locus: calc_maf(locus), axis=1)
+    print('\t', f"There are {sum(snps['maf'] < 0.01)} loci with MAF < 0.01 in the snps file.")
+    
+    # remove low frequency SNPs
+    snps = snps[snps['maf'] >= 0.01]
+    print('\t', f'After removing low MAF SNPs, there are {nrow(snps)} SNPs in the dataset.')
 
-    # read in the dataframe in chunks, apply function to each chunk in parallel
-    snpfile = op.join(slimdir, f'{seed}_plusneut_MAF01.recode2.vcf.txt')
-    snps = parallel_read(snpfile,
-                         lview=lview,
-                         dview=dview,
-                         functions=functions,
-                         verbose=False)
-
-    # set locus names as row names
-    loci = snps.index.map(vcf_index_to_locus)
-    snps.index = loci.tolist()
-
-    # any snp with name='no_name' should be excluded because MAF < 0.01
-    assert snps[snps.index == 'no_name']['MAF'].min() > 0
-    assert snps[snps.index == 'no_name']['MAF'].max() < 0.01
-
-    # remove loci with low MAF
-    snps = snps[snps.index != 'no_name']
-
-    print('\t', f'There are {nrow(snps)} loci with MAF > 0.01 in the snps file.')
-
-    # are all of the subset individuals in the z12 file? A: yes!
+    # are all of the subset individuals in the z12 file?
     assert all(subset.index.isin(snps.columns))
 
-    # are all of the z12 individuals in the subset set? A: yes!
-    assert all([ind in subset.index.tolist() for ind in snps.columns if ind.startswith('i')])
+    # are all of the z12 individuals in the subset set?
+    assert all([ind in subset.index.tolist() for ind in snps.columns if ind != 'maf'])
+
+    # do my maf calculations match those from Katie?
+    muts_full = pd.read_table(op.join(slimdir, f'{seed}_Rout_muts_full.txt'),
+                              usecols=['a_freq_subset', 'mutname'],
+                              delim_whitespace=True)
+    mut_maf = muts_full['a_freq_subset'].apply(lambda freq: freq if freq <=0.5 else 1-freq)  # convert to maf
+    mut_maf = pd.Series(dict(zip(muts_full['mutname'], mut_maf)))
+    try:
+        assert all(mut_maf.loc[snps.index].round(4) == snps['maf'].round(4))
+    except AssertionError as e:
+        print(ColorText('my maf calculations do not match Katies to four decimals').bold().custom('red'))
+        raise e
 
     # save for other purposes (eg RONA)
     print(ColorText('\nSaving 012 file ...').bold().custom('gold'))
-    z12file = snpfile.replace('.txt', '_012.txt')
+    z12file = snpfile.replace('.txt', '_maf-gt-p01.txt')  # new file name = maf > 0.01
     snps.to_csv(z12file, sep='\t', index=True)
 
     # save for GF training script
-    gf_snps = save_gf_snpfile(snps, subset, snpfile)
+    gf_snps = save_gf_snpfile(snps, subset, z12file)
 
     return z12file, gf_snps
 
 
-def pop_freq(df: pd.DataFrame) -> pd.DataFrame:
-    """For each locus, get MAF for each pop."""
+def pop_freq(df):
+    """For each locus, get frequency of derived allele for each pop."""
     from collections import defaultdict
     import pandas as pd
 
     pop_freqs = defaultdict(dict)
     for pop, samps in popsamps.items():
         pop_freqs[pop].update(
-            dict(  # key = locus, val = pop_MAF
-                df[samps].apply(sum, axis=1) / (2*len(samps))  # calc frequency of minor allele
+            dict(  # key = locus, val = pop_AF
+                df[samps].apply(sum, axis=1) / (2*len(samps))  # calc pop frequency of derived allele
             )
         )
 
@@ -260,13 +198,13 @@ def pop_freq(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def create_pop_freqs(subset, z12file):
-    """Create population-level MAF frequencies."""
-    print(ColorText('\nCreating population-level MAF frequencies ...').bold().custom('gold'))
+    """Create population-level derived allele frequencies frequencies."""
+    print(ColorText('\nCreating population-level derived allele frequencies ...').bold().custom('gold'))
     # assign samps to pop
     samppop = dict(zip(subset.index, subset.subpopID))
     popsamps = subset.groupby('subpopID')['sample_name'].apply(list).to_dict()
     dview['popsamps'] = popsamps
-    time.sleep(10)
+    sleeping(10)
 
     # calc pop freqs in parallel using z12 file (counts of minor allele)
     jobs = parallel_read(z12file,
@@ -275,24 +213,30 @@ def create_pop_freqs(subset, z12file):
                          functions=create_fundict(pop_freq),
                          verbose=False,
                          index_col=0,
+                         delim_whitespace=True,
+                         sep=lib.no_default,  # work around for current implementation of parallel_read and get_skipto_df
                          maintain_dataframe=False)
 
-    freqs = pd.concat(jobs).T
+    freqs = pd.concat(jobs).T  # rows=pops, cols=loci
+    
+    # do my freqs match those from Katie?
+    mut_freqs = pd.read_table(op.join(slimdir, f'{seed}_Rout_af_pop.txt'), delim_whitespace=True)
+    for locus in pbar(freqs.columns, desc='asserting frequency calculations'):  # iterate freqs in case of MAF filter
+        assert all(freqs[locus] == mut_freqs[locus])
+        
     freqs['index'] = freqs.index.tolist()  # for compatibility with gradient_training.R script
-
     print(f'\n{freqs.shape = }  (npop x (nloci + index_col))')
-
+    
     # save for gradient forest
     gf_snp_files['pooled']['all'] = gf_snp_files['ind']['all'].replace('_ind_all.txt', '_pooled_all.txt')
     freqs.to_csv(gf_snp_files['pooled']['all'],
-                   sep='\t',
-                   index=False)
+                 sep='\t',
+                 index=False)
 
-    # save for RONA
+    # save for RONA - rows=loci, cols=pops
     rona_file = gf_snp_files['pooled']['all'].replace("_GFready_", "_RONAready_").replace('/gradient_forests/', '/RONA/')
     makedir(op.dirname(rona_file))
     freqs[freqs.columns[:-1]].T.to_csv(rona_file, sep='\t', index=True)  # before transposing, remove 'index' column
-
 
     return samppop, freqs
 
@@ -326,7 +270,7 @@ def create_rangefiles(subset, samppop):
     return rangedata, pool_rangedata    
 
 
-def create_envfiles(rangedata, pool_rangedata) -> None:
+def create_envfiles(rangedata, pool_rangedata):
     print(ColorText('\nCreating envdata files ...').bold().custom('gold'))
     # INDIVIDUAL-LEVEL DATA
     envdata = rangedata[['sal_opt', 'temp_opt']].copy()
@@ -392,12 +336,15 @@ def subset_adaptive_loci(muts, gf_snps, freqs):
 
 
 def create_training_shfiles():
+    """Create slurm sbatch files to submit GF training jobs to queue."""
+    print(ColorText('Creating slurm sbatch files ...').bold().custom('gold'))
+
     mytime = {'ind': {'all': '5-00:00:00', 'adaptive': '1:00:00'},
               'pooled': {'all': '23:00:00', 'adaptive': '1:00:00'}}
 
     mymem = {'ind': {'all': '600000M', 'adaptive': '4000M'},
              'pooled': {'all': '300000M', 'adaptive': '4000M'}}
-    
+
     partition = wrap_defaultdict(lambda: 'short', 2)
     partition['ind']['all'] = 'long'
 
@@ -447,6 +394,43 @@ cd {training_filedir}
     return shfiles
 
 
+def submit_jobs(shfiles):
+    """Submit training jobs to slurm, queue up fitting and validation scripts to run as soon as training completes."""
+    print(ColorText('\nSubmitting training scripts to slurm ...').bold().custom('gold'))
+    pids = sbatch(shfiles)
+#     create_watcherfile(pids, shdir, 'gf_training_watcher', email)  # TODO change to fitting
+
+    # sbatch jobs to fit GF models to common garden climates, then to validate GF
+    shtext = '\n'.join(
+        ['cd /home/b.lind/code/MVP-offsets/01_src',
+         '',
+         'source $HOME/.bashrc',
+         '',
+         f'python MVP_02_fit_gradient_forests.py {seed} {slimdir} {outfile_dir} {rscript}',
+         '',
+         f'python MVP_03_validate_gradient_forests.py {seed} {slimdir} {outdir}/gradient_forests',
+         ''
+        ]
+    )
+
+    create_watcherfile(pids,
+                       fitting_shdir,
+                       watcher_name=f'{seed}_gf_fitting',
+                       time='3:00:00',
+                       ntasks=1,
+                       rem_flags = ['#SBATCH --nodes=1', '#SBATCH --cpus-per-task=7'],
+                       mem='200000M',
+                       begin_alert=True,
+                       added_text=shtext)
+#     create_watcherfile(pids, fitting_shdir, f'{seed}_gf_fitting', email)  # TODO change to fitting
+
+    print(ColorText('\nShutting down engines ...').bold().custom('gold'))
+    print(ColorText(f'\ntime to complete: {formatclock(dt.now() - t1, exact=True)}'))
+    print(ColorText('\nDONE!!').bold().green(), '\n')
+    
+    pass
+
+
 def main():
     # get the individuals that were subsampled from full simulation
     subset = read_ind_data(slimdir, seed)
@@ -455,7 +439,7 @@ def main():
     muts = read_muts_file()
 
     # get counts of minor allele for each sample
-    z12file, gf_snps = get_012(muts, subset)
+    z12file, gf_snps = get_012(subset)
 
     # calc allele freqs per pop
     samppop, freqs = create_pop_freqs(subset, z12file)
@@ -471,24 +455,9 @@ def main():
 
     # create shfiles to train Gradient Forests
     shfiles = create_training_shfiles()
-
-    # sbatch training files, create job to email once training jobs complete
-    print(ColorText('\nSubmitting training scripts to slurm ...').bold().custom('gold'))
-    pids = sbatch(shfiles[::-1])  # reverse sbatching so I can avoid sbatching individual-all training sets
-#     create_watcherfile(pids, shdir, 'gf_training_watcher', email)  # TODO change to fitting
-
-    # sbatch jobs to fit GF models to common garden climates, then to validate GF
-    shtext = '\n'.join(['cd /home/b.lind/code/MVP-offsets/01_src', '',
-                        'source $HOME/.bashrc', '',
-                        f'python MVP_02_fit_gradient_forests.py {seed} {slimdir} {outfile_dir} {rscript}', '',
-                        f'python MVP_03_validate_gradient_forests.py {seed} {slimdir} {outdir}/gradient_forests', ''
-                       ])
-
-    create_watcherfile(pids, fitting_shdir, watcher_name=f'{seed}_gf_fitting', time='3:00:00', ntasks=1,
-                       rem_flags = ['#SBATCH --nodes=1', '#SBATCH --cpus-per-task=7'],
-                       mem='200000M', begin_alert=True,
-                       added_text=shtext)
-#     create_watcherfile(pids, fitting_shdir, f'{seed}_gf_fitting', email)  # TODO change to fitting
+    
+    # submit jobs to queue
+    submit_jobs(shfiles)
 
     print(ColorText('\nShutting down engines ...').bold().custom('gold'))
     print(ColorText(f'\ntime to complete: {formatclock(dt.now() - t1, exact=True)}'))
