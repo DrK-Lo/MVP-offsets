@@ -125,7 +125,9 @@ def create_scatter_map(rona, fitness, locations, envdata):
         colormap = 'Reds' if env=='temp_opt' else 'Blues_r'
         cmap = plt.cm.get_cmap(colormap)
         cols = offset.columns.map(envdata[env]).to_series().apply(color, cmap=cmap, norm=norm).tolist()
-        garden_performance_scatter(ronadf, fitness, env, locations, envdata, cols, norm=norm, cmap=cmap, seed=seed, fig_dir=fig_dir)
+        garden_performance_scatter(
+            ronadf, fitness, env, locations, envdata, cols, norm=norm, cmap=cmap, seed=seed, fig_dir=fig_dir
+        )
         
         
         # garden performance
@@ -135,7 +137,7 @@ def create_scatter_map(rona, fitness, locations, envdata):
             
             # record squared spearman's rho
             garden_performance[env][garden] = ronadata.corr(fitness.loc[garden],
-                                                            method='spearman') ** 2
+                                                            method='spearman')
             # record slope
             garden_slopes[env][garden] = linregress(ronadata, fitness.loc[garden]).slope
 
@@ -149,7 +151,7 @@ def create_scatter_map(rona, fitness, locations, envdata):
             
             # record squared spearman's rho
             source_performance[env][source_pop] = ronadata.corr(fitness[source_pop],
-                                                                method='spearman') ** 2
+                                                                method='spearman')
             
             # record slope
             source_slopes[env][source_pop] = linregress(ronadata, fitness[source_pop]).slope
