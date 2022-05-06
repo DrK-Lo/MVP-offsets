@@ -78,7 +78,7 @@ def get_envdata():
     these files were created in MVP_00_train_gradient_forests.py
     """
     print(ColorText('\nGetting environmental data ...').bold().custom('gold'))
-    files = fs(training_filedir, pattern='_envfile_')
+    files = fs(training_filedir, pattern='_envfile_', startswith=seed)
     assert len(files) <= 2, files
 
     envdfs = {}
@@ -145,12 +145,13 @@ def run_fit_gradient_forests(garden_files):
 
     # get the RDS output from training
     predfiles = fs(training_outdir, pattern=f'{seed}_', endswith='predOut.RDS')
+    assert len(predfiles) <= 2
 
     # run parallelization
     jobs = []
     basenames = []
     for predfile in predfiles:
-        trainingfile = predfile.replace("_predOut.", "_training.")
+        trainingfile = predfile.replace("_predOut.RDS", "_training.RDS")
         assert op.exists(trainingfile)
         
         # was this predfile from training with individuals or pools? with adaptive loci or all?
