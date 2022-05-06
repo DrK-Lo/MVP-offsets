@@ -58,8 +58,8 @@ def train(freqs):
 
 def calculate_linear_models(seed):
     print(ColorText('\nCalculating linear models for each locus for each env ...').bold().custom('gold'))
-    # get population-level MAFs
-    freqfile = op.join(rona_training_dir, f'{seed}_plusneut_MAF01.recode2.vcf_RONAready_pooled_all.txt')
+    # get population-level allele frequencies for the derived allele
+    freqfile = op.join(rona_training_dir, f'{seed}_Rout_Gmat_sample_maf-gt-p01_RONAready_pooled_all.txt')
 
     # calculate linear models in parallel
     jobs = parallel_read(freqfile,
