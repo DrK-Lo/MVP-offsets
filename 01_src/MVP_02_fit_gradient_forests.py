@@ -126,7 +126,7 @@ def fit_gradient_forests(gfOut_trainingfile, garden_file, predfile, basename, sa
     
     output = subprocess.check_output(
         [
-            rscript,
+            rscript_exe,
             fitting_file,
             gfOut_trainingfile,
             garden_file,
@@ -145,7 +145,7 @@ def run_fit_gradient_forests(garden_files):
 
     # get the RDS output from training
     predfiles = fs(training_outdir, pattern=f'{seed}_', endswith='predOut.RDS')
-    assert len(predfiles) <= 2
+#     assert len(predfiles) == 4  # ind_all ind_adaptive pooled_all pooled_adaptive
 
     # run parallelization
     jobs = []
@@ -202,7 +202,7 @@ def main():
 
 if __name__ == '__main__':
     # get input args
-    thisfile, seed, slimdir, training_outdir, rscript = sys.argv
+    thisfile, seed, slimdir, training_outdir, rscript_exe = sys.argv
 
     print(ColorText(f'\nStarting {op.basename(thisfile)} ...').bold().custom('gold'))
 
@@ -214,10 +214,10 @@ if __name__ == '__main__':
 
     # start cluster
     print(ColorText('\nStarting engines ...').bold().custom('gold'))
-    lview, dview, cluster_id = start_engines(n=7)
+    lview, dview, cluster_id = start_engines(n=10)
 
     # load objects to cluster
-    dview['rscript'] = rscript
+    dview['rscript_exe'] = rscript_exe
     fitting_file = op.join(op.dirname(thisfile), 'MVP_gf_fitting_script.R')
     dview['fitting_file'] = fitting_file
 

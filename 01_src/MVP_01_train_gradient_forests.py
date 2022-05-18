@@ -377,7 +377,7 @@ conda activate r35
 
 cd {training_filedir}
 
-{rscript} \\
+{rscript_exe} \\
 {training_script} \\
 {_snpfile} \\
 {_envfile} \\
@@ -406,7 +406,7 @@ def submit_jobs(shfiles):
          '',
          'source $HOME/.bashrc',
          '',
-         f'python MVP_02_fit_gradient_forests.py {seed} {slimdir} {outfile_dir} {rscript}',
+         f'python MVP_02_fit_gradient_forests.py {seed} {slimdir} {outfile_dir} {rscript_exe}',
          '',
          f'python MVP_03_validate_gradient_forests.py {seed} {slimdir} {outdir}/gradient_forests',
          ''
@@ -468,7 +468,7 @@ def main():
 
 if __name__ == '__main__':
     # get input args
-    thisfile, seed, slimdir, outdir, num_engines, rscript, imports_dir, email = sys.argv
+    thisfile, seed, slimdir, outdir, num_engines, rscript_exe, imports_dir, email = sys.argv
 
     print(ColorText(f'\nStarting {op.basename(thisfile)} ...').bold().custom('gold'))
     training_script = op.join(op.dirname(op.abspath(thisfile)), 'MVP_gf_training_script.R')
