@@ -69,9 +69,47 @@ parent_directory (`outdir` arg to MVP_01_train_gradient_forests.py) can handle m
 
 ```
 
+---
+## Cloning and setting up the MVP-offsets repository for production runs
+Before running scripts, users will need to set up the Anaconda environments below. First, however, the MVP-offsets repository will need to be cloned to the local computer.
+
+After cloning, export the path of the 01_src directory to PYTHONPATH within `$HOME/.bashrc`:
+
+```
+export PYTHONPATH="${PYTHONPATH}:/path/to/MVP-offsets/01_src"
+```
 
 ---
+## Conda environments
+Various [Anaconda environments](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) are used across scripts. Users will need to install Anaconda (not miniconda) and be sure to allow the conda init within $HOME/.bashrc (you should be prompted during install).
 
+**1. Python environment**
+  - this environment is used to start the pipeline and run all .py scripts in the repository
+  - most python scripts depend on cloning [pythonimports from Brandon Lind](https://github.com/brandonlind/pythonimports). After cloning, create the environment by executing (after updating path):`conda env create -n mvp_env -f /path/to/pythonimports/py385.yml`. The path of the cloned repository will need to be exported to the PYTHONPATH within `$HOME/.bashrc` :
+
+```
+export PYTHONPATH="${PYTHONPATH}:/path/to/pythonimports"
+```
+
+  - activate the mvp_env environment (`conda activate mvp_env`), then: `conda install -c conda-forge scikit-allel`
+
+**2. Gradient Forests environment**
+  - this environment is used to run the GradientForests package v0.1-18
+  - create this environment with the following command (updating path): `conda create -n gf_env -f /path/to/MVP-offsets/01_src/gf_env.yml`
+  - activate the gf_env environment (`conda activate gf_env`) then install GradientForests: `R CMD INSTALL /path/to/MVP-offsets/01_src/gradientForest_0.1-18.tar.gz`
+  - open R, then: 
+     -  `install.packages(data.table)`
+     -  `install.packages(rgeos)`
+     -  `install.packages(raster)`
+
+**3. LFMM2/LEA environment**
+  - this environment is used to run lfmm2 from the LEA2 package
+  - to retrieve the .yml file clone the [MVP-NonClinalAF repository](https://github.com/ModelValidationProgram/MVP-NonClinalAF/blob/main/src/env/MVP_env_R4.0.3.yml)
+  - create this environment with the following command (updating path): `conda create -n lea_env -f /path/to/MVP-NonClinalAF/src/env/MVP_env_R4.0.3.yml`
+
+
+---
+## Scripts
 ### MVP_01_train_gradient_forests.py
 
 This script creates necessary infiles to train Gradient Forests (GF), and submits slurm jobs to train GF using the script `MVP_gf_training_script.R` for a specific simulation `seed`; and queues up MVP_02.py and MVP_03.py to begin once training is complete. See docstring and code comments for more details.
