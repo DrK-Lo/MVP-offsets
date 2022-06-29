@@ -1,13 +1,33 @@
 """Calculate population pairwise FST according to Weir & Cockerham 1984.
 
+Usage
+-----
+conda activate mvp_env
+python MVP_07_calc_WC_pairwise_FST.py seed slimdir gf_training_dir num_engines
+
+Parameters
+----------
+seed
+    the seed number of the simulation - used to find associated files
+slimdir
+    the location of the seed's files output by Katie's post-processing scripts
+num_engines
+    number of engines to use to parallelize calculations necessary to estimate FST
+
 Notes
 -----
 - negative FST values are set to 0
+- diagonal of FST matrix is set to 0 (pops for columns pops for rows)
 
 Dependencies
 ------------
 - dependent upon completion of MVP_01_train_gradient_forests.py
 - dependent upon code from github.com/brandonlind/pythonimports
+
+TODO
+----
+- create FST map figure
+
 """
 from pythonimports import *
 from MVP_01_train_gradient_forests import read_ind_data
@@ -17,22 +37,22 @@ import allel
 
 def get_gt_data():
     """Get genotype data in format compatible for sci-kit allel."""
-    print(
-        ColorText(
-            '\nConverting minor allele counts to scikit.allel format ...'
-        ).bold().custom('gold')
-    )
+    print(ColorText(
+        '\nConverting minor allele counts to scikit.allel format ...'
+    ).bold().custom('gold'))
+
     # map minor allele count to genotypes for scikit allel
     z12_trans = {
-        0 : [1,1],  # zero minor alleles almost always means homozygous REF
+        0 : [0,0],  # zero derived alleles almost always means homozygous REF
         1 : [0,1],
-        2 : [0,0]
+        2 : [1,1]
     }
 
     # read in file with genotypes as counts of global minor allele
-    z12file = op.join(slimdir, f'{seed}_plusneut_MAF01.recode2.vcf_012.txt')
+#     z12file = op.join(slimdir, f'{seed}_plusneut_MAF01.recode2.vcf_012.txt')
+    z12file = op.join(slimdir, f'{seed}_Rout_Gmat_sample_maf-gt-p01.txt')
     df = pd.read_table(z12file, index_col=0)
-    df = df[[col for col in df.columns if col.startswith('i')]]
+    df = df[[col for col in df.columns if not col=='maf']]
 
     # translate 012 to scikit allel format
     df = df.apply(lambda series: series.map(z12_trans))
