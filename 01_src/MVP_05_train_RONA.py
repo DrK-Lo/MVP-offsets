@@ -2,8 +2,17 @@
 
 Usage
 -----
-export PYTHONPATH="${PYTHONPATH}:/path/to/MVP-offsets/01_src"
-python MVP_04_train_RONA.py seed, rona_training_dir, num_engines
+conda activate mvp_env
+python MVP_05_train_RONA.py seed rona_training_dir num_engines
+
+Parameters
+----------
+seed
+    the seed number of the simulation - used to find associated files
+rona_training_dir
+    path to directory created from `outdir` arg to MVP_01_train_gradient_forests.py: outdir/RONA/training/training_files
+num_engines
+    number of engines to use to parallelize calculations necessary to estimate RONA
 
 Dependencies
 ------------
