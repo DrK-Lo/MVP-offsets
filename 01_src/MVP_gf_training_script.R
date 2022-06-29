@@ -3,6 +3,7 @@
 #
 # Usage
 # -----
+# conda activate gf_env
 # Rscript gradient_training.R snpfile envfile range_file basename save_dir imports_path
 #
 # Notes
@@ -23,28 +24,33 @@
 #    - see eg yeaman03:/notebooks/007_JP_gea/07_gradient_forest/01_prep_spatial_envdata.ipynb
 # basename - the basename prefix wanted for saving files in `save_dir`
 # save_dir - the directory where files should be saved
-# imports_path - path to directory with my homebrew R functions
+# imports_path - path to directory with my homebrew R functions - deprecated
 #--------------------------------------------------------------------------------------------------------#
 
 library(data.table)
-library(hash)
+# library(hash)
 library(gradientForest)
 library(raster)
 library(rgeos)
 
+# options and aliases
 options(datatable.fread.datatable=FALSE)
+len = length
 
+print(sessionInfo())
+
+# input args
 args = commandArgs(trailingOnly=TRUE)
 snpfile <- args[1]
 envfile <- args[2]
 range_file <- args[3]
 basename <- args[4]
 save_dir <- args[5]
-imports_path <- args[6]
+# imports_path <- args[6]
 
 print(snpfile)
 
-source(paste0(imports_path, '/imports.R'))  # https://github.com/brandonlind/r_imports
+# source(paste0(imports_path, '/imports.R'))  # https://github.com/brandonlind/r_imports
 
 print(format(Sys.time(), format="%B %d %Y %T"))
 
@@ -60,7 +66,7 @@ prep_snps <- function(snpfile, exclude=c(), sep='\t'){
     # load data
     snps <- fread(snpfile, sep=sep)
     # set row names
-    row.names(snps) <- snps[ ,'index']
+    row.names(snps) <- snps[ , 'index']
     # remove column so all cols are loci
     snps <- subset(snps, select = -c(index))
     # get popnames, exclude irrelevant columns
@@ -76,7 +82,14 @@ prep_snps <- function(snpfile, exclude=c(), sep='\t'){
 
 prep_envdata <- function(envfile, pops){
     #-------------------------------------------------------------------------#
-    # COLOR GEOGRAPHIC GROUPS AND REORDER POPS IN ENVIRONMENT TABLE 
+    # Read in environmental data; order as in snp data.
+    #
+    # Parameters
+    # ----------
+    # envfile
+    #     - path to envdata file
+    # pops
+    #     - a list of population or individual IDs for ordering envdata
     #
     # Notes
     # -----
@@ -94,6 +107,7 @@ prep_envdata <- function(envfile, pops){
     cat(sprintf('There are %s environmental attributes in the envdata table.', len(envs)))
     
     # order pops same as snp table
+    stopifnot(all(pops %in% rownames(envdata)))
     envdata <- envdata[pops, ]
     
     # add to global namespace so I don't have to return a stupid list, stupid R
@@ -133,10 +147,7 @@ range_data <- read.csv(range_file, sep='\t')
 
 ### TRAIN GRADIENT FORESTS
 
-cat(sprintf('
-
-Training gradient forests ...
-'))
+cat(sprintf('\n\nTraining gradient forests ...\n'))
 
 # double check that pops are in same order
 print(rownames(envdata))
@@ -159,13 +170,11 @@ gfOut <- gradientForest(cbind(envdata, cand_freqs),
 print(proc.time() - ptm)
 
 
+rm(cand_freqs)
 
 
 ### INTEROPOLATE MODEL TO RANGE_WIDE DATA FOR THE SAME TIME PERIOD
-cat(sprintf('
-
-Interpolating gradient forests model ...
-'))
+cat(sprintf('\n\nInterpolating gradient forests model ...\n'))
 ptm <- proc.time()
 predOut.gf <- predict(gfOut, range_data[ ,envs])
 print(proc.time() - ptm)
@@ -173,10 +182,7 @@ print(proc.time() - ptm)
 
 
 ### SAVE
-cat(sprintf('
-
-Saving files ...
-'))
+cat(sprintf('\n\nSaving files ...\n'))
 gfOut_trainingfile <- paste0(
     save_dir,
     sprintf('/%s_gradient_forest_training.RDS', basename)
@@ -194,8 +200,5 @@ print(predfile)
 
 
 ### END
-cat(sprintf('
-DONE!
-'))
+cat(sprintf('\n\nDONE!\n'))
 print(format(Sys.time(), format="%B %d %Y %T"))
-
