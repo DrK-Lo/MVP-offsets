@@ -2,7 +2,8 @@
 
 Usage
 -----
-python 01_train_gradient_forests.py seed, slimdir, outdir, num_engines, rscript, imports_dir, email
+conda activate mvp_env
+python MVP_01_train_gradient_forests.py seed slimdir outdir num_engines rscript email
 
 Parameters
 ----------
@@ -11,21 +12,18 @@ slimdir - the location of the seed's files output by Katie's post-processing scr
 outdir - where to save files
 num_engines - the number of engines to start for parallelizing tasks
 rscript - path to R environment's Rscript executable - eg ~/anaconda3/envs/r35/bin/Rscript
-imports_dir - path to imports.R from github.com/brandonlind/r_imports
+imports_dir - path to imports.R from github.com/brandonlind/r_imports - deprecated!
 email - email to receive sbatch notifications
 
 Dependencies
 ------------
 - dependent upon code from github.com/brandonlind/pythonimports
+- dependent upon creation of conda environment - see 01_src/README.md
 
 Notes
 -----
 - to be able to submit the individual training using all loci, users will need access to both the
     long and large partitions on the discovery cluster at NEU
-
-TODO
-----
-- create code to create .txt file from vcf file
 """
 from pythonimports import *
 import pandas._libs.lib as lib
@@ -34,6 +32,7 @@ import pandas._libs.lib as lib
 def make_gf_dirs(outerdir):
     """Create some dirs to put infiles, outfiles, and figs into."""
     print(ColorText('\nCreating directories ...').bold().custom('gold'))
+    
     directory = makedir(op.join(outerdir, 'gradient_forests'))
     training_filedir = makedir(op.join(directory, 'training/training_files'))
     shdir = makedir(op.join(directory, 'training/training_shfiles'))
@@ -46,6 +45,7 @@ def make_gf_dirs(outerdir):
 def read_ind_data(slimdir, seed):
     """Get the individuals that were subsampled from full simulation."""
     print(ColorText('\nReading in info for subsampled individuals ...').bold().custom('gold'))
+    
     subset = pd.read_table(op.join(slimdir, f'{seed}_Rout_ind_subset.txt'), delim_whitespace=True)
     subset.index = subset['indID'].astype(str).tolist()
     subset['sample_name'] = subset.index.tolist()
@@ -56,6 +56,7 @@ def read_ind_data(slimdir, seed):
 def read_muts_file():
     """Read in the seed_Rout_muts_full.txt file, convert `VCFrow` to 0-based, name loci."""
     print(ColorText('\nReading muts file ...').bold().custom('gold'))
+    
     # get path to file
     muts_file = op.join(slimdir, f'{seed}_Rout_muts_full.txt')
 
@@ -131,7 +132,8 @@ def get_012(subset):
     Notes
     -----
     filtering for MAF should be redundant as the input file `snpfile` should already be filtered
-        but as of this version, only AF < 0.01 had been filtered
+        but as of this version, only AF < 0.01 had been filtered.
+        Even after filtering includes AF > 0.99, the code here in current form should still be accurate.
     """
     print(
         ColorText(
@@ -200,6 +202,7 @@ def pop_freq(df):
 def create_pop_freqs(subset, z12file):
     """Create population-level derived allele frequencies frequencies."""
     print(ColorText('\nCreating population-level derived allele frequencies ...').bold().custom('gold'))
+    
     # assign samps to pop
     samppop = dict(zip(subset.index, subset.subpopID))
     popsamps = subset.groupby('subpopID')['sample_name'].apply(list).to_dict()
@@ -213,7 +216,7 @@ def create_pop_freqs(subset, z12file):
                          functions=create_fundict(pop_freq),
                          verbose=False,
                          index_col=0,
-                         delim_whitespace=True,
+#                          delim_whitespace=True,  # cannot be set when setting `sep`; still works
                          sep=lib.no_default,  # work around for current implementation of parallel_read and get_skipto_df
                          maintain_dataframe=False)
 
@@ -272,6 +275,7 @@ def create_rangefiles(subset, samppop):
 
 def create_envfiles(rangedata, pool_rangedata):
     print(ColorText('\nCreating envdata files ...').bold().custom('gold'))
+    
     # INDIVIDUAL-LEVEL DATA
     envdata = rangedata[['sal_opt', 'temp_opt']].copy()
     # save
@@ -294,6 +298,7 @@ def create_envfiles(rangedata, pool_rangedata):
 def subset_adaptive_loci(muts, gf_snps, freqs):
     """Identify adaptive loci via the muts file, save to file, subset ind and pooled data."""
     print(ColorText('\nSubsetting adaptive loci ...').bold().custom('gold'))
+    
     # identify the loci under selection
     adaptive_loci = muts.index[muts['mutID'] != 1]
 
@@ -342,7 +347,7 @@ def create_training_shfiles():
     mytime = {'ind': {'all': '5-00:00:00', 'adaptive': '1:00:00'},
               'pooled': {'all': '23:00:00', 'adaptive': '1:00:00'}}
 
-    mymem = {'ind': {'all': '600000M', 'adaptive': '4000M'},
+    mymem = {'ind': {'all': '800000M', 'adaptive': '4000M'},
              'pooled': {'all': '300000M', 'adaptive': '4000M'}}
 
     partition = wrap_defaultdict(lambda: 'short', 2)
@@ -371,7 +376,7 @@ def create_training_shfiles():
 #SBATCH --mail-user={email}
 #SBATCH --mail-type=FAIL
 
-source $HOME/.bashrc
+source $HOME/.bashrc  # assumed that conda init is within .bashrc
 conda deactivate
 conda activate r35
 
@@ -383,8 +388,7 @@ cd {training_filedir}
 {_envfile} \\
 {_rangefile} \\
 {basename} \\
-{outfile_dir} \\
-{imports_dir}
+{outfile_dir}
 
 '''
             with open(shfile, 'w') as o:
@@ -397,12 +401,13 @@ cd {training_filedir}
 def submit_jobs(shfiles):
     """Submit training jobs to slurm, queue up fitting and validation scripts to run as soon as training completes."""
     print(ColorText('\nSubmitting training scripts to slurm ...').bold().custom('gold'))
+    
     pids = sbatch(shfiles)
 #     create_watcherfile(pids, shdir, 'gf_training_watcher', email)  # TODO change to fitting
 
     # sbatch jobs to fit GF models to common garden climates, then to validate GF
     shtext = '\n'.join(
-        ['cd /home/b.lind/code/MVP-offsets/01_src',
+        [f'cd {op.dirname(op.abspath(thisfile))}',
          '',
          'source $HOME/.bashrc',
          '',
@@ -418,7 +423,7 @@ def submit_jobs(shfiles):
                        watcher_name=f'{seed}_gf_fitting',
                        time='3:00:00',
                        ntasks=1,
-                       rem_flags = ['#SBATCH --nodes=1', '#SBATCH --cpus-per-task=7'],
+                       rem_flags=['#SBATCH --nodes=1', '#SBATCH --cpus-per-task=7'],
                        mem='200000M',
                        begin_alert=True,
                        added_text=shtext)
@@ -468,7 +473,7 @@ def main():
 
 if __name__ == '__main__':
     # get input args
-    thisfile, seed, slimdir, outdir, num_engines, rscript_exe, imports_dir, email = sys.argv
+    thisfile, seed, slimdir, outdir, num_engines, rscript_exe, email = sys.argv
 
     print(ColorText(f'\nStarting {op.basename(thisfile)} ...').bold().custom('gold'))
     training_script = op.join(op.dirname(op.abspath(thisfile)), 'MVP_gf_training_script.R')
