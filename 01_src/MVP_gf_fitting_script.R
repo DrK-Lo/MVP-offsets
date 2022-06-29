@@ -3,6 +3,7 @@
 #
 # Usage
 # -----
+# conda activate gf_env
 # Rscript gradient_fitting_script.R gfOut_trainingfile range_file predfile maskfile basename save_dir
 #
 # Parameters
@@ -25,6 +26,8 @@
 #----------------------------------------------------------------------------------------------------------#
 
 library(gradientForest)
+
+print(sessionInfo())
 
 
 calc_euclid <- function(proj, curr){
