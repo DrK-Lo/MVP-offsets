@@ -2,15 +2,18 @@
 
 Usage
 -----
-python MVP_01_fit_gradient_forests.py seed, slimdir, training_outdir, rscript
+conda activate mvp_env
+python MVP_01_fit_gradient_forests.py seed slimdir training_outdir rscript_exe
 
 Parameters
 ----------
-seed - the seed number of the simulation - used to find associated files
-slimdir - the location of the seed's files output by Katie's post-processing scripts
-training_outdir - the location of RDS outfiles from MVP_00_train_gradient_forests.py 
-    the path endswith: gradient_forests/training/training_outfiles
-rscript - path to R environment's Rscript executable - eg ~/anaconda3/envs/r35/bin/Rscript
+seed
+    the seed number of the simulation - used to find associated files
+slimdir
+    the location of the seed's files output by Katie's post-processing scriptstraining_outdir - the location of RDS
+    outfiles from MVP_01_train_gradient_forests.py. The path endswith: gradient_forests/training/training_outfiles
+rscript_exe
+    path to R environment's Rscript executable - eg ~/anaconda3/envs/gf_env/bin/Rscript
     R environment must be able to `library(gradientforests)`
 
 Notes
@@ -20,10 +23,11 @@ Notes
 Dependencies
 ------------
 - dependent upon completion of MVP_01_train_gradient_forests.py
+- dependent upon creation of conda environment - see 01_src/README.md
 - dependent upon code from github.com/brandonlind/pythonimports
 """
 from pythonimports import *
-# from MVP_00_train_gradient_forests import read_ind_data
+# from MVP_01_train_gradient_forests import read_ind_data
 
 
 def make_fitting_dirs(training_outdir):
@@ -79,7 +83,7 @@ def get_envdata():
     """
     print(ColorText('\nGetting environmental data ...').bold().custom('gold'))
     files = fs(training_filedir, pattern='_envfile_', startswith=seed)
-    assert len(files) <= 2, files
+    assert len(files) == 2, files
 
     envdfs = {}
     envfiles = {}
@@ -100,7 +104,7 @@ def create_garden_files(envdfs: dict, envfiles: dict) -> defaultdict:
     """
     print(ColorText('\nCreating "future climates" for each common garden ...'))
     garden_files = defaultdict(list)
-    for ind_or_pooled,f in envfiles.items():  # for each way of training gradient forests
+    for ind_or_pooled, f in envfiles.items():  # for each way of training gradient forests
         df = envdfs[ind_or_pooled].copy()
         for subpopID in envdfs['pooled'].index:  # for each garden's climate
             # set all individuals/pools to the same value
