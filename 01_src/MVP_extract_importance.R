@@ -1,9 +1,20 @@
-
 #-----------------------------------------------------------------------------------------------------#
 # From a saved RDS object output from gradient forest training, extract predictor importance and save
+#
+# Usage
+# -----
+# conda activate gf_env
+# Rscript MVP_extract_importance.R rdsfile
+#
+# Parameters
+# ----------
+# rdsfile
+#     - path to RDS file containing trained gradient forest object
 #-----------------------------------------------------------------------------------------------------#
 
 library(gradientForest)
+
+print(sessionInfo())
 
 args = commandArgs(trailingOnly=TRUE)
 rdsfile = args[1]
