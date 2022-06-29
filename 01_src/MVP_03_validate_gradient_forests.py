@@ -1,4 +1,19 @@
-"""
+"""Validate trained models of Gradient Forests.
+
+Usage
+-----
+conda activate mvp_env
+python MVP_03_validate_gradient_forests.py seed slimdir gf_parentdir
+
+Parameters
+----------
+seed
+    the seed number of the simulation - used to find associated files
+slimdir
+    the location of the seed's files output by Katie's post-processing scripts
+gf_parentdir
+    the gradient forests upper directory within the directory created from `outdir` from MVP_01_train_gradient_forests.py
+
 Dependencies
 ------------
 - dependent upon completion of MVP_01_train_gradient_forests.py
