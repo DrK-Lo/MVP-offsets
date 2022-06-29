@@ -2,14 +2,24 @@
 
 Validation is done by correlating population mean fitness with RONA (for each env).
 
-TODO
-----
-save heatmaps as csv
+Usage
+-----
+conda activate mvp_env
+python MVP_06_validate_RONA.py seed slimdir rona_outdir
+
+Parameters
+----------
+seed
+    the seed number of the simulation - used to find associated files
+slimdir
+    the location of the seed's files output by Katie's post-processing scripts
+rona_outdir
+    path to directory created in MVP_05_train_RONA.py ending in: RONA/training/training_outfiles
 
 Dependencies
 ------------
 - dependent upon completion of MVP_01_train_gradient_forests.py
-- dependent upon completion of MVP_04_train_RONA.py
+- dependent upon completion of MVP_05_train_RONA.py
 - dependent upon code from github.com/brandonlind/pythonimports
 """
 from pythonimports import *
@@ -71,13 +81,13 @@ def garden_performance_scatter(
     figpos, fig, axes = fig_setup(locations)
     
     # create each of the population subfigures in the order matplotlib puts them into the figure
-    for subplot,ax in enumerate(axes.flat):
+    for subplot, ax in enumerate(axes.flat):
         garden = figpos[subplot]  # which garden now?
         ax.scatter(offset.loc[garden],
                    fitness.loc[garden],
                    c=cols)
         # decide if I need to label longitude (x) or latitude (y) axes
-        x,y = locations.loc[garden]  
+        x, y = locations.loc[garden]  
         if subplot in range(0, 110, 10):
             ax.set_ylabel(int(y))
         if subplot in range(90, 101, 1):
