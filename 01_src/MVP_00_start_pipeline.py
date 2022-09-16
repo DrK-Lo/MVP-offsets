@@ -17,6 +17,8 @@ TODO
 from pythonimports import *
 import argparse
 
+import MVP_10_train_lfmm2_offset as mvp10
+
 
 def get_pars():
     """Parse command line arguments."""
@@ -116,6 +118,8 @@ Whether to run all offset analyes.''')
     if len(badpaths) > 0:
         text = """Error, the following conda envs do not exist: \n%s""" % '\n'.join(badpaths)
         raise Exception(text)
+        
+    pkldump(args, op.join(args.outdir, f'pipeline_input_args_{dt.now().strftime("%m-%d-%Y-%H:%M:%S")}.pkl'))
     
     return args
 
@@ -321,16 +325,21 @@ def execute_rda(seeds, args, gf_pids=None):
     gf_training_dir = op.join(args.outdir, 'gradient_forests/training/training_files')
     rda_dir = op.join(args.outdir, 'rda')
     rda_outdir = makedir(op.join(rda_dir, 'rda_files'))
+    rda_catdir = makedir(op.join(rda_dir, 'rda_catfiles'))
     
     shfiles = []
     for seed in seeds:
         basename = f'{seed}_rda'
         dependency_text = '' if gf_pids is None else f'#SBATCH --dependency=afterok:{gf_pids[seed]}'
         
+        # how many of the traits (envs) in this seed are imposing selection?
+        ntraits = mvp10.determine_adaptive_envs(args.slimdir, seed)
+        
         snpfile = op.join(gf_training_dir, f'{seed}_Rout_Gmat_sample_maf-gt-p01_GFready_pooled_all.txt')
         
         # files created by Katie
-        rda_files = fs(args.slimdir, pattern='_RDA', endswith='.RDS')
+        rda_files = fs(args.slimdir, startswith=f'{seed}_RDA', endswith='.RDS')
+        assert len(rda_files) == 2  # structure-corrected and -uncorrected
         
         # the files that will be created by MVP_pooled_pca_and_rda.R
         rda_files.extend([
@@ -341,12 +350,12 @@ def execute_rda(seeds, args, gf_pids=None):
         # get a list of RDA offset commands
         cmds = []
         for rda_file in rda_files:
-            for use_RDA_outliers in ['TRUE', 'FALSE', 'CAUSAL']:
+            for use_RDA_outliers in ['TRUE', 'FALSE', 'CAUSAL', 'NEUTRAL']:
                 cmds.append(
-                    f"Rscript MVP_RDA_offset.R {seed} {args.slimdir} {args.outdir} {rda_file} {use_RDA_outliers}"
+                    f"Rscript MVP_12_RDA_offset.R {seed} {args.slimdir} {args.outdir} {rda_file} {use_RDA_outliers} {ntraits}"
                 )
         
-        cmdfile = op.join(rda_dir, f'{seed}_rda_commands.txt')
+        cmdfile = op.join(rda_catdir, f'{seed}_rda_commands.txt')
         with open(cmdfile, 'w') as o:
             o.write('\n'.join(cmds))        
         
@@ -370,9 +379,15 @@ conda activate MVP_env_R4.0.3
 
 cd {mvp_dir}
 
+# create PCA data for pool-seq SNPs
 Rscript {mvp_dir}/MVP_pooled_pca_and_rda.R {seed} {args.slimdir} {snpfile} {args.outdir} {mvp_dir} # /full/path.R is necessary
 
+# run RDA offset estimation 
 cat {cmdfile} | parallel -j {len(cmds)} --progress --eta
+
+# validate offset estimation
+conda activate mvp_env
+python MVP_13_RDA_validation.py {seed} {args.slimdir} {args.outdir}
 
 """
         shfile = op.join(shdir, f'{basename}.sh')
@@ -380,9 +395,11 @@ cat {cmdfile} | parallel -j {len(cmds)} --progress --eta
             o.write(shtext)
             
         shfiles.append(shfile)
-        
+
+    # sbatch jobs and retrieve SLURM_JOB_IDs
     pids = sbatch(shfiles)
-    
+
+    # create alert for notification
     create_watcherfile(pids, shdir, watcher_name='rda_watcher', email=args.email)
     
     pass
@@ -426,8 +443,8 @@ def main():
     
     # run RDA offset
     if args.run_rda is True:
-        if args.run_lfmm is True:
-            execute_rda(seeds, args, gf_pids)  # lfmm_pids is a dict key=seed val=pid
+        if args.run_gf is True:
+            execute_rda(seeds, args, gf_pids)
         else:
             execute_rda(seeds, args)
 
