@@ -143,23 +143,59 @@ def fit_gradient_forests(gfOut_trainingfile, garden_file, predfile, basename, sa
     return output
 
 
+def handle_dead_jobs(jobs, args):
+    """Redo any jobs that died."""
+    print(ColorText('\nRedoing any jobs that died ...').bold().custom('gold'))
+    
+    iteration = 0
+    while True:
+        needed_args = []
+        for i, j in enumerate(jobs):
+            try:
+                _ = j.r
+            except:
+                # something caused the job to die, probably mem
+                needed_args.append(args[i])
+        
+        if len(needed_args) == 0:
+            break
+        
+        jobs = []
+        for arg in needed_args:
+            jobs.append(
+                lview.apply_async(
+                    fit_gradient_forests, *arg
+                )
+            )
+            
+        watch_async(jobs, desc=f'iteration: {iteration}')
+        
+        args = needed_args
+        
+        iteration += 1
+        
+
+    pass
+
+
 def run_fit_gradient_forests(garden_files):
     """Parallelize fitting of gradient forests model to future climates of transplant locations."""
     print(ColorText('\nFitting gradient forest models to common garden climates ...').bold().custom('gold'))
 
     # get the RDS output from training
     predfiles = fs(training_outdir, pattern=f'{seed}_', endswith='predOut.RDS')
-#     assert len(predfiles) == 4  # ind_all ind_adaptive pooled_all pooled_adaptive
+    assert len(predfiles) == 6  # ind_all ind_adaptive ind_neural, pooled_all pooled_adaptive, pooled_neutral
 
     # run parallelization
     jobs = []
     basenames = []
+    allargs = []
     for predfile in predfiles:
         trainingfile = predfile.replace("_predOut.RDS", "_training.RDS")
         assert op.exists(trainingfile)
         
         # was this predfile from training with individuals or pools? with adaptive loci or all?
-        ind_or_pooled, adaptive_or_all = op.basename(predfile)\
+        ind_or_pooled, marker_set = op.basename(predfile)\
                                             .split("GF_training_")[1]\
                                             .split("_gradient_forest")[0]\
                                             .split('_')
@@ -167,22 +203,28 @@ def run_fit_gradient_forests(garden_files):
         for garden_file in garden_files[ind_or_pooled]:
             garden_ID = op.basename(garden_file).split("_")[-1].rstrip(".txt")
             
-            basename = f'{seed}_{ind_or_pooled}_{adaptive_or_all}_{garden_ID}'
+            basename = f'{seed}_{ind_or_pooled}_{marker_set}_{garden_ID}'
             assert basename not in basenames
             basenames.append(basename)
 
+            args = (trainingfile,
+                    garden_file,
+                    predfile,
+                    basename,
+                    fitting_dir)
+            allargs.append(args)
+
             jobs.append(
                 lview.apply_async(
-                    fit_gradient_forests, *(trainingfile,
-                                            garden_file,
-                                            predfile,
-                                            basename,
-                                            fitting_dir)
+                    fit_gradient_forests, *args
                 )
             )
 
     # watch progress of parallel jobs
     watch_async(jobs, desc='fitting gradient forests')
+    
+    # redo any jobs that died
+    handle_dead_jobs(jobs, allargs)
 
     pass
 
