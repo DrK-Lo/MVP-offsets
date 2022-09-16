@@ -21,7 +21,7 @@
 # ------------
 # - dependent upon completion of MVP_01_train_gradient_forests.py
 # - dependend upon completion of MVP_00_start_pipeline.py --rda
-# - ability to source MVP_RDA_offset.R for functions:
+# - ability to source MVP_12_RDA_offset.R for functions:
 #     - `get_curr_envdata`
 #         - which also calls `standardize_envdata`
 #     - `get_pc_data`
@@ -69,49 +69,6 @@ prep_snps <- function(snpfile, exclude=c(), sep='\t'){
     return(snps)
 }
 
-run_pca = function(){
-    #--------------------------------------------------#
-    # Run principle component analysis on pooled SNPs.
-    #--------------------------------------------------#
-    
-    # create dir if necessary - set globally
-    pca_dir <<- paste0(outerdir, '/pca/infiles')
-    if (!dir.exists(pca_dir)){
-        dir.create(pca_dir, recursive=TRUE)
-        print(sprintf('\tcreated pca_dir: %s', pca_dir))
-    }
-
-    # read in pooled data
-    snps <- prep_snps(snpfile)
-
-    # writing compatable lfmm file for pca input
-    tmp_basename = paste0(
-        sub('.txt', '', basename(snpfile)),
-        '_for_pca.lfmm'
-    )
-    tmpfile = paste(
-        pca_dir,
-        tmp_basename,
-        sep='/'
-    ) 
-    write.table(snps, tmpfile, row.names=FALSE, col.names=FALSE, sep='\t')
-
-    # do PCA
-    print('Performing PCA ...')
-    pc = pca(tmpfile, 30, scale = TRUE)
-
-    # save PCA
-    print('Saving PCA ...')
-    basename <- sprintf(
-        '/%s_pca.RDS',
-        sub('.txt', '', basename(snpfile))
-    )
-
-    rds_file <- paste0(pca_dir, basename)
-    saveRDS(pc, rds_file)
-    print('saved pooled PCA to :')
-    print(rds_file)
-}
 
 rdadapt<-function(rda, K=2){
     #-------------------------------------------------------------------------------#
@@ -152,7 +109,15 @@ create_muts_file = function(rdaout, rdaout_corr){
     # rdaout_corr
     #     - rda object - structure-corrected
     #---------------------------------------------------------------------------------------#
-        
+
+    # where to save the output
+    mutsdir = paste0(outerdir, '/pca/mutfiles')
+    if (!dir.exists(mutsdir)){
+        dir.create(mutsdir, recursive=TRUE)
+        print(sprintf('\tcreated mutsdir: %s', mutsdir))
+    }
+    
+    # retrieve loadings, put into a dataframe
     scores = scores(rdaout, choices=1:4)
     scores_corr = scores(rdaout_corr, choices=1:4)
 
@@ -162,13 +127,12 @@ create_muts_file = function(rdaout, rdaout_corr){
     pool.sc_corr = scores_corr$sites
     
     muts_full = data.frame(loci.sc[ , 1])
-    colnames(muts_full) = c('RDA1_score')
+    colnames(muts_full) = c('RDA1_score')  # all other column names are set when adding to dataframe `muts_full` below
     muts_full$RDA2_score = loci.sc[ , 2]
     muts_full$RDA1_score_corr = loci.sc_corr[ , 1]
     muts_full$RDA2_score_corr = loci.sc_corr[ , 2]
     
-    # RDA outliers and error rates####
-
+    # RDA outliers
     ps = rdadapt(rdaout)
     ps_corr = rdadapt(rdaout_corr)
 
@@ -181,28 +145,80 @@ create_muts_file = function(rdaout, rdaout_corr){
     
     # save pooled muts file
     mutsfile = paste0(
-        paste0(outerdir, '/pca'),
+        mutsdir,
         sprintf('/%s_pooled_Rout_muts_full.txt', seed)
     )
-    
     write.table(muts_full, mutsfile, row.names=FALSE, col.names=TRUE, sep='\t')
-    
     cat(sprintf('\n\nsaved pooled muts file to: %s', mutsfile))
     
 }
 
 
-run_rda = function(){
-    #-----------------------------------------------#
-    # Run structure-corrected and -uncorrected RDA.
-    # 
-    # Notes
-    # -----
-    # - structure correction is done using all loci
-    #-----------------------------------------------#
+run_pca = function(){
+    #--------------------------------------------------#
+    # Run principle component analysis on pooled SNPs.
+    #--------------------------------------------------#
+    
+    # move into directory so extra pca files save there - create dir if necessary - set globally
+    starting_dir = getwd()
+    pca_dir <<- paste0(outerdir, '/pca/pca_output')
+    if (!dir.exists(pca_dir)){
+        dir.create(pca_dir, recursive=TRUE)
+        print(sprintf('\tcreated pca_dir: %s', pca_dir))
+    }
+    setwd(pca_dir)
+
     # read in pooled data
     snps <- prep_snps(snpfile)
+
+    # writing compatable lfmm file for pca input
+    tmp_basename = paste0(
+        sub('.txt', '', basename(snpfile)),
+        '_for_pca.lfmm'
+    )
+    tmpfile = paste(
+        pca_dir,
+        tmp_basename,
+        sep='/'
+    ) 
+    write.table(snps, tmpfile, row.names=FALSE, col.names=FALSE, sep='\t')
+
+    # do PCA
+    print('Performing PCA ...')
+    pc = pca(tmpfile, 30, scale = TRUE)
+
+    # save PCA
+    print('Saving PCA ...')
+    basename <- sprintf(
+        '/%s_pca.RDS',
+        sub('.txt', '', basename(snpfile))
+    )
+
+    rds_file <- paste0(pca_dir, basename)
+    saveRDS(pc, rds_file)
+    print('saved pooled PCA to :')
+    print(rds_file)
     
+    # go back to starting_dir
+    setwd(starting_dir)
+    
+    return(snps)
+}
+
+
+run_rda = function(snps){
+    #----------------------------------------------------------------------------------------------------#
+    # Run structure-corrected and -uncorrected RDA.
+    # 
+    # Parameters
+    # ----------
+    # snps - data.frame; output from `prep_snps` - pops for rows, loci for cols, frequencies for entries
+    #
+    # Notes
+    # -----
+    # - structure correction is done from PCs estimated using all loci
+    #----------------------------------------------------------------------------------------------------#
+
     # get current environmental data
     env_pres = get_curr_envdata()
     sal = env_pres[, 'sal']
@@ -248,20 +264,20 @@ main = function(args){
     outerdir <<- args[4]
     mvp_dir <<- args[5]
     ind_or_pooled <<- 'pooled'  # for MVP_RDA_offset::get_curr_envdata
-    thisfile = paste0(mvp_dir, '/MVP_pooled_pca_and_rda.R')
     
     # import functions
     options(run.main=FALSE)
-    source(paste0(dirname(thisfile), '/MVP_RDA_offset.R'))
+    thisfile = paste0(mvp_dir, '/MVP_pooled_pca_and_rda.R')
+    source(paste0(dirname(thisfile), '/MVP_12_RDA_offset.R'))
     
-    # directories of files created in MVP_01.py - set globally for MVP_RDA_offset::get_curr_envdata
+    # directories of files created in MVP_01.py - set globally for MVP_RDA_offset.R::get_curr_envdata
     gf_training_dir <<- paste0(outerdir, '/gradient_forests/training/training_files')
     
     # do PCA
-    run_pca()
+    snps = run_pca()
     
     # do RDA
-    run_rda()
+    run_rda(snps)
 }
 
 
