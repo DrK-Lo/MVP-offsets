@@ -1,4 +1,4 @@
-name: r35
+name: gf_env
 channels:
   - r
   - defaults
@@ -165,3 +165,4 @@ dependencies:
   - zipp=3.4.0=pyhd3eb1b0_0
   - zlib=1.2.11=h7b6447c_3
   - zstd=1.4.5=h9ceee32_0
+prefix: /home/b.lind/anaconda3/envs/gf_env
