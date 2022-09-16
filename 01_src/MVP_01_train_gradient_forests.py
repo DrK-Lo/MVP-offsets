@@ -54,7 +54,7 @@ def read_ind_data(slimdir, seed):
 
 
 def read_muts_file():
-    """Read in the seed_Rout_muts_full.txt file, convert `VCFrow` to 0-based, name loci."""
+    """Read in the seed_Rout_muts_full.txt file, name loci."""
     print(ColorText('\nReading muts file ...').bold().custom('gold'))
     
     # get path to file
@@ -118,7 +118,7 @@ def calc_maf(locus):
     return maf
 
 
-def get_012(subset):
+def get_012(subset, muts):
     """Get genotypes in 012 format (counts of derived allele), filter for MAF.
     
     Returns
@@ -161,9 +161,10 @@ def get_012(subset):
     assert all([ind in subset.index.tolist() for ind in snps.columns if ind != 'maf'])
 
     # do my maf calculations match those from Katie?
-    muts_full = pd.read_table(op.join(slimdir, f'{seed}_Rout_muts_full.txt'),
-                              usecols=['a_freq_subset', 'mutname'],
-                              delim_whitespace=True)
+    muts_full = muts[['a_freq_subset', 'mutname']].copy()
+#     muts_full = pd.read_table(op.join(slimdir, f'{seed}_Rout_muts_full.txt'),
+#                               usecols=['a_freq_subset', 'mutname'],
+#                               delim_whitespace=True)
     mut_maf = muts_full['a_freq_subset'].apply(lambda freq: freq if freq <=0.5 else 1-freq)  # convert to maf
     mut_maf = pd.Series(dict(zip(muts_full['mutname'], mut_maf)))
     try:
@@ -295,47 +296,55 @@ def create_envfiles(rangedata, pool_rangedata):
     pass
 
 
-def subset_adaptive_loci(muts, gf_snps, freqs):
-    """Identify adaptive loci via the muts file, save to file, subset ind and pooled data."""
-    print(ColorText('\nSubsetting adaptive loci ...').bold().custom('gold'))
+def subset_adaptive_and_netural_loci(muts, gf_snps, freqs):
+    """Identify adaptive and neutral loci via the muts file, save to file, subset ind and pooled data."""
+    print(ColorText('\nSubsetting adaptive and neutral loci ...').bold().custom('gold'))
     
-    # identify the loci under selection
-    adaptive_loci = muts.index[muts['mutID'] != 1]
+    for locus_type in ['adaptive', 'neutral']:
+        # identify loci
+        if locus_type == 'adaptive':
+            loci = muts.index[muts['mutID'] != 1]
+        else:
+            loci = muts.index[(muts['causal_temp'] == 'neutral') & (muts['causal_sal'] == 'neutral')]
+        
+        # save file
+        locus_file = op.join(training_filedir, f'{seed}_{locus_type}_loci.pkl')
+        pkldump(loci, locus_file)
+        print(f'{locus_type} loci file = {locus_file}')
+        # symlink for RONA
+        try:
+            dst = locus_file.replace('/gradient_forests/', '/RONA/')
+            os.symlink(locus_file, dst)
+        except FileExistsError as e:  # if the symlink has already been created
+            pass
+        except FileNotFoundError as e:  # perhaps user did not say they wanted to run RONA
+            makedir(op.dirname(dst))
+            os.symlink(locus_file, dst)
+            
+        # subset Gradient Forest training data and save
+        gf_loci = gf_snps[list(loci) + ['index']].copy()
+        print(f'{locus_type} {gf_loci.shape = }')
+        
+        gf_snp_files['ind'][locus_type] = gf_snp_files['ind']['all'].replace("_all.txt", f"_{locus_type}.txt")
+        
+        gf_loci.to_csv(gf_snp_files['ind'][locus_type],
+                       sep='\t',
+                       index=False)
+        
+        print(f"{gf_snp_files['ind'][locus_type] = }")
+        
+        # subset pooled Gradient Forest data and save
+        pooled_gf_loci = freqs[loci].copy()
+        pooled_gf_loci['index'] = pooled_gf_loci.index.tolist()
+        print(f'{locus_type} {pooled_gf_loci.shape = }')
+        
+        gf_snp_files['pooled'][locus_type] = gf_snp_files['pooled']['all'].replace("_all.txt", f"_{locus_type}.txt")
 
-    # save adaptive loci
-    locus_file = op.join(training_filedir, f'{seed}_adaptive_loci.pkl')
-    pkldump(adaptive_loci, locus_file)
-    print(f'adaptive loci file = {locus_file}')
-    # symlink for RONA
-    try:
-        os.symlink(locus_file, locus_file.replace('/gradient_forests/', '/RONA/'))
-    except FileExistsError as e:
-        pass
+        pooled_gf_loci.to_csv(gf_snp_files['pooled'][locus_type],
+                              sep='\t',
+                              index=False)
 
-    # subset Gradient Forest training data and save
-    adaptive_gf_snps = gf_snps[list(adaptive_loci) + ['index']].copy()
-    print(f'{adaptive_gf_snps.shape = }')
-
-    gf_snp_files['ind']['adaptive'] = gf_snp_files['ind']['all'].replace("_all.txt", "_adaptive.txt")
-
-    adaptive_gf_snps.to_csv(gf_snp_files['ind']['adaptive'],
-                            sep='\t',
-                            index=False)
-
-    print(f"{gf_snp_files['ind']['adaptive'] = }")
-
-    # subset pooled Gradient Forest data and save
-    pooled_adaptive_gf_snps = freqs[adaptive_loci].copy()
-    pooled_adaptive_gf_snps['index'] = pooled_adaptive_gf_snps.index.tolist()
-    print(f'{pooled_adaptive_gf_snps.shape = }')
-
-    gf_snp_files['pooled']['adaptive'] = gf_snp_files['pooled']['all'].replace("_all.txt", "_adaptive.txt")
-
-    pooled_adaptive_gf_snps.to_csv(gf_snp_files['pooled']['adaptive'],
-                                   sep='\t',
-                                   index=False)
-
-    print(f"{gf_snp_files['pooled']['adaptive'] =}")
+        print(f"{gf_snp_files['pooled'][locus_type] =}")    
 
     pass
 
@@ -344,26 +353,41 @@ def create_training_shfiles():
     """Create slurm sbatch files to submit GF training jobs to queue."""
     print(ColorText('Creating slurm sbatch files ...').bold().custom('gold'))
 
-    mytime = {'ind': {'all': '5-00:00:00', 'adaptive': '1:00:00'},
-              'pooled': {'all': '23:00:00', 'adaptive': '1:00:00'}}
+    mytime = {
+        'ind': {'all': '5-00:00:00',
+                'adaptive': '1:00:00',
+                'neutral' : '5-00:00:00'},
+        
+        'pooled': {'all': '23:00:00',
+                   'adaptive': '1:00:00',
+                   'neutral' : '23:00:00'}
+    }
 
-    mymem = {'ind': {'all': '800000M', 'adaptive': '4000M'},
-             'pooled': {'all': '300000M', 'adaptive': '4000M'}}
+    mymem = {
+        'ind': {'all': '850000M',
+                'adaptive': '4000M',
+                'neutral' : '400000M'},
+        
+        'pooled': {'all': '300000M',
+                   'adaptive': '4000M',
+                   'neutral': '150000M'}
+    }
 
     partition = wrap_defaultdict(lambda: 'short', 2)
     partition['ind']['all'] = 'long'
+    partition['ind']['neutral'] = 'long'
 
     shfiles = []
     for ind_or_pooled in ['ind', 'pooled']:
-        for all_or_adaptive in ['all', 'adaptive']:  # all loci or only those under selection
-            basename = f'{seed}_GF_training_{ind_or_pooled}_{all_or_adaptive}'
+        for marker_set in ['all', 'adaptive', 'neutral']:  # all loci, those under selection, or neutral
+            basename = f'{seed}_GF_training_{ind_or_pooled}_{marker_set}'
             shfile = op.join(shdir, f'{basename}.sh')
 
             # set up variables
-            _time = mytime[ind_or_pooled][all_or_adaptive]
-            _mem = mymem[ind_or_pooled][all_or_adaptive]
-            _partition = partition[ind_or_pooled][all_or_adaptive]
-            _snpfile = op.basename(gf_snp_files[ind_or_pooled][all_or_adaptive])
+            _time = mytime[ind_or_pooled][marker_set]
+            _mem = mymem[ind_or_pooled][marker_set]
+            _partition = partition[ind_or_pooled][marker_set]
+            _snpfile = op.basename(gf_snp_files[ind_or_pooled][marker_set])
             _envfile = op.basename(gf_env_files[ind_or_pooled])
             _rangefile = op.basename(gf_range_files[ind_or_pooled])
 
@@ -403,13 +427,14 @@ def submit_jobs(shfiles):
     print(ColorText('\nSubmitting training scripts to slurm ...').bold().custom('gold'))
     
     pids = sbatch(shfiles)
-#     create_watcherfile(pids, shdir, 'gf_training_watcher', email)  # TODO change to fitting
 
     # sbatch jobs to fit GF models to common garden climates, then to validate GF
     shtext = '\n'.join(
-        [f'cd {op.dirname(op.abspath(thisfile))}',
+        [f'cd {mvp_dir}',
          '',
          'source $HOME/.bashrc',
+         '',
+         'conda activate mvp_env',
          '',
          f'python MVP_02_fit_gradient_forests.py {seed} {slimdir} {outfile_dir} {rscript_exe}',
          '',
@@ -421,17 +446,12 @@ def submit_jobs(shfiles):
     create_watcherfile(pids,
                        fitting_shdir,
                        watcher_name=f'{seed}_gf_fitting',
-                       time='3:00:00',
+                       time='12:00:00',
                        ntasks=1,
                        rem_flags=['#SBATCH --nodes=1', '#SBATCH --cpus-per-task=7'],
-                       mem='200000M',
-                       begin_alert=True,
+                       mem='220000M',
+                       begin_alert=False,
                        added_text=shtext)
-#     create_watcherfile(pids, fitting_shdir, f'{seed}_gf_fitting', email)  # TODO change to fitting
-
-    print(ColorText('\nShutting down engines ...').bold().custom('gold'))
-    print(ColorText(f'\ntime to complete: {formatclock(dt.now() - t1, exact=True)}'))
-    print(ColorText('\nDONE!!').bold().green(), '\n')
     
     pass
 
@@ -440,11 +460,11 @@ def main():
     # get the individuals that were subsampled from full simulation
     subset = read_ind_data(slimdir, seed)
 
-    # read in the seed_Rout_muts_full.txt file, convert `VCFrow` to 0-based, name loci
+    # read in the seed_Rout_muts_full.txt file, name loci
     muts = read_muts_file()
 
     # get counts of minor allele for each sample
-    z12file, gf_snps = get_012(subset)
+    z12file, gf_snps = get_012(subset, muts)
 
     # calc allele freqs per pop
     samppop, freqs = create_pop_freqs(subset, z12file)
@@ -455,8 +475,8 @@ def main():
     # create envdata for the script and save
     create_envfiles(rangedata, pool_rangedata)
 
-    # subset data for adaptive loci
-    subset_adaptive_loci(muts, gf_snps, freqs)
+    # subset data for adaptive and neutral loci
+    subset_adaptive_and_netural_loci(muts, gf_snps, freqs)
 
     # create shfiles to train Gradient Forests
     shfiles = create_training_shfiles()
@@ -474,14 +494,16 @@ def main():
 if __name__ == '__main__':
     # get input args
     thisfile, seed, slimdir, outdir, num_engines, rscript_exe, email = sys.argv
+    
+    mvp_dir = op.dirname(op.abspath(thisfile))
 
     print(ColorText(f'\nStarting {op.basename(thisfile)} ...').bold().custom('gold'))
-    training_script = op.join(op.dirname(op.abspath(thisfile)), 'MVP_gf_training_script.R')
+    training_script = op.join(mvp_dir, 'MVP_gf_training_script.R')
 
     # set up timer
     t1 = dt.now()
 
-    # for looking up file names - of the form dict[ind_or_pooled][all_or_adaptive]
+    # for looking up file names - of the form dict[ind_or_pooled][marker_set]
     gf_snp_files = defaultdict(dict)
     gf_range_files = defaultdict(dict)
     gf_env_files = defaultdict(dict)
