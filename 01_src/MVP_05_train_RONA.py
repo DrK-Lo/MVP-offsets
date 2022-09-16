@@ -182,22 +182,21 @@ def scatter_rona_elements(freqfile):
     return rona_elements
 
 
-def calculate_rona(rona_elements, sig_models, use_adaptive=False):
+def calculate_rona(rona_elements, sig_models, marker_set='all'):
     """Calculate the real rona by summing and averaging elements."""
-    marker_set = 'adaptive' if use_adaptive is True else 'all'
     print(f'using {marker_set} loci ...')
     
     rona = wrap_defaultdict(None, 3)  # one RONA per pop per climate
     rona_loci_counts = wrap_defaultdict(None, 3)
     all_counts = wrap_defaultdict(list, 2)
     
-    if use_adaptive is True:
-        adaptive_pkl = op.join(rona_training_dir, f'{seed}_adaptive_loci.pkl')  # from MVP_01.py
-        adaptive_loci = pklload(adaptive_pkl)
+    if marker_set != 'all':
+        loci_pkl = op.join(rona_training_dir, f'{seed}_{marker_set}_loci.pkl')  # from MVP_01.py
+        subset_loci = pklload(loci_pkl)
 
-    for env,gardendict in rona_elements.items():
-        for garden,popdict in pbar(gardendict.items(), desc=env):
-            for pop,elementdict in popdict.items():
+    for env, gardendict in rona_elements.items():
+        for garden, popdict in pbar(gardendict.items(), desc=env):
+            for pop, elementdict in popdict.items():
                 # make sure I got what I was expecting to get - number of loci with sig linear models
                 assert len(elementdict) == len(sig_models[env])
 
@@ -209,8 +208,8 @@ def calculate_rona(rona_elements, sig_models, use_adaptive=False):
                 interloci = set(sig_models[env]).intersection(elementdict.keys())
                 assert len(interloci) == len(sig_models[env]) == len(elementdict.keys())
                 
-                if use_adaptive is True:
-                    interloci = set(interloci).intersection(adaptive_loci)
+                if marker_set != 'all':
+                    interloci = set(interloci).intersection(subset_loci)
 
                 elements = [elementdict[locus] for locus in interloci]
                 if sum(el==el for el in elements) > 0:
@@ -242,10 +241,12 @@ def main():
 
     # get environmental values for each subpopID, load to parallel engines
     dview['popenvdata'] = get_envdata(subset)  # load popenvdata to engines
+    sleeping(10)
 
-    # calculate linear model fits betwee pop allele freq and climate env
+    # calculate linear model fits between pop allele freq and climate env
     results, freqfile = calculate_linear_models(seed)
     dview['results'] = results  # load results to engines
+    sleeping(10)
 
     # determine which loci had significant linear models with environments
     sig_models = retrieve_significant_models(results)
@@ -258,8 +259,8 @@ def main():
 
     # calculate RONA according to equation from Rellstab et al. 2016
     print(ColorText('\nCalculating RONA for each common garden ...').bold().custom('gold'))
-    for use_adaptive in [True, False]:
-        calculate_rona(rona_elements, sig_models, use_adaptive)
+    for marker_set in ['all', 'adaptive', 'neutral']:
+        calculate_rona(rona_elements, sig_models, marker_set)
 
     # done
     print(ColorText('\nShutting down engines ...').bold().custom('gold'))
