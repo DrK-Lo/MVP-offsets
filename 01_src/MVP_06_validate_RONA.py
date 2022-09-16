@@ -23,14 +23,107 @@ Dependencies
 - dependent upon code from github.com/brandonlind/pythonimports
 """
 from pythonimports import *
-from myfigs import save_pdf
+from myfigs import histo_box, gradient_image, create_cmap
 
 import MVP_01_train_gradient_forests as mvp01
+import MVP_03_validate_gradient_forests as mvp03
+import MVP_10_train_lfmm2_offset as mvp10
+import MVP_13_RDA_validation as mvp13
 
 import seaborn as sns
 from matplotlib.colors import Normalize
 from matplotlib.cm import ScalarMappable
+from matplotlib.backends.backend_pdf import PdfPages
 from scipy.stats import linregress
+
+
+def color(val, cmap=None, norm=None):
+    """Return rgb on colormap `cmap`."""
+    return cmap(norm(val))[:3]
+
+
+def calculate_performance(fitness, marker_sets=['all', 'adaptive', 'neutral']):
+    """Calculate correlation between fitness and offset within and across gardens."""
+    print(ColorText("\nCalculating performance ...").bold().custom('gold'))
+    
+    garden_performance = wrap_defaultdict(dict, 2)
+    source_performance = wrap_defaultdict(dict, 2)
+    garden_slopes = wrap_defaultdict(pd.Series(dtype=float).copy, 2)
+    source_slopes = wrap_defaultdict(pd.Series(dtype=float).copy, 2)
+
+    offset_dfs = defaultdict(dict)
+    for marker_set in marker_sets:
+        # load RONA estimates
+        rona = pklload(op.join(rona_outdir, f'{seed}_{marker_set}_RONA_results.pkl'))
+        
+        for env, rona_dict in rona.items():
+            # format rona predictions in the same format as fitness dataframe
+                # pd.DataFrame(rona[env]).T is necessary so that source deme is col and garden is row
+#             rona_offset = pd.DataFrame(rona_dict).T
+            offset_dfs[marker_set][env] = pd.DataFrame(rona_dict).T
+            
+            # correlation of fitness and offset within gardens across transplants
+            garden_performance[marker_set][env] = offset_dfs[marker_set][env].corrwith(
+                fitness,
+                axis='columns',  # across columns for each row
+                method='kendall')      
+
+            # slope of fitness ~ offset within gardens
+            for garden in pbar(fitness.index, desc=f'{marker_set} {env} garden performance'):
+                # record slope
+                garden_slopes[marker_set][env].loc[garden] = linregress(
+                    offset_dfs[marker_set][env].loc[garden, fitness.columns],
+                    fitness.loc[garden]
+                ).slope        
+        
+            # correlation of fitness and offset for transplants across gardens
+            source_performance[marker_set][env] = offset_dfs[marker_set][env].corrwith(
+                fitness,
+                axis='index',  # across rows for each column
+                method='kendall'
+            )      
+
+            # slope of fitness ~ offset across gardens
+            for source_pop in pbar(fitness.columns, desc=f'{marker_set} {env} population performance'):
+                # retrieve rona for this pop
+                ronadata = pd.Series(dtype=float)
+                for garden in fitness.index:  # ensures same order between ronadata and fitness[source_pop]
+                    ronadata.loc[garden] = rona_dict[garden][source_pop]
+
+                # record slope
+                source_slopes[marker_set][env].loc[source_pop] = linregress(ronadata, fitness[source_pop]).slope
+                
+    performance_dicts = {'garden_performance' : garden_performance,
+                         'source_performance' : source_performance,
+                         'garden_slopes' : garden_slopes,
+                         'source_slopes' : source_slopes
+                        }
+    # save performance dicts
+    pkl = op.join(corr_dir, f'{seed}_performance_dicts.pkl')
+    pkldump(performance_dicts, pkl)
+    print(f'\twrote performance_dicts to : {pkl}')
+    
+    # save offsets
+    pkl = op.join(offset_dir, f'{seed}_offset_dfs.pkl')
+    pkldump(offset_dfs, pkl)
+    print(f'\n\twrote offset_dfs to : {pkl}')
+
+    return performance_dicts, offset_dfs
+
+
+def get_pop_data(slimdir, seed):
+    """Get coordinates for each population in the simulations."""
+    # get the individuals that were subsampled from full simulation
+    subset = mvp01.read_ind_data(slimdir, seed)
+
+    # get x and y coords for each population
+    locations = subset.groupby('subpopID')[['x', 'y']].apply(np.mean)
+    locations.columns = ['lon', 'lat']  # index = subpopID
+
+    # get envdata for each subpopID
+    envdata = subset.groupby('subpopID')[['sal_opt', 'temp_opt']].apply(np.mean)
+    
+    return subset, locations, envdata
 
 
 def load_pooled_fitness_matrix(slimdir, seed):
@@ -51,9 +144,270 @@ def load_pooled_fitness_matrix(slimdir, seed):
     return fitness
 
 
-def color(val, cmap=None, norm=None):
-    """Return rgb on colormap `cmap`."""
-    return cmap(norm(val))[:3]
+def create_histo_subplots(performance_dict, performance_name, pdf, cmap='viridis', N=5,
+                          marker_sets=['all', 'adaptive', 'neutral'],
+                          histplot_kws={}, boxplot_kws={}):
+    """Create a panel of histograms for performance of either garden or source (within `performance_dict`).
+    
+    Parameters
+    ----------
+    performance_dict - nested dictionary
+        - contstructed as - performance_dict[ind_or_pooled][marker_set][which_traits][structcorr]
+        - the final value is a pandas.Series of Kendall's tau validation scores (cor between offset
+            and prediction)
+    performance_name - str
+        - the type of performance measured, used for figure label and file; either 'garden performance'
+            or 'source performance'
+    cmap
+        - the type of color map to signify the sign and magnitude of Kendall's tau
+    N - int
+        - the number of breaks in the color map
+    marker_sets - list
+        - a list of marker sets - see `label_dict`
+    histplot_kws - dict
+        - kwargs passed to histo_box
+    boxplot_kws - dict
+        - kwargs passed to histo_box
+        
+    
+    Notes
+    -----
+        - creates one figure for pooled data and another figure for individual data
+        - each figure contains rows (one for each marker set in `marker_sets`) and two columns
+            each for 1-env RDA and 2-env RDA (where the two columns are RDAs with(out) population
+            structure correction)
+    """
+    print(ColorText(f'\nCreating histo boxplots for {performance_name} ...').bold().custom('gold'))
+    
+    # get color map
+    if isinstance(cmap, str):
+        cmap = plt.cm.get_cmap(cmap, lut=N)
+        
+    # update kwargs
+    if 'edgecolor' not in keys(histplot_kws):
+        histplot_kws.update(
+            dict(edgecolor='white')
+        )
+    if 'linewidth' not in keys(boxplot_kws):
+        boxplot_kws.update(
+            dict(linewidth=0.80)
+        )
+
+    # create figs
+    # create subplots to fill in
+    fig, axes = plt.subplots(len(marker_sets), 2,
+                             sharey=False,
+                             figsize=(10, 10))
+        
+    # fill in subplots with histograms
+    for row, marker_set in enumerate(marker_sets):
+        row_axes = axes[row]
+        col = 0  # column counter
+        for env in ['sal_opt', 'temp_opt']:
+            ax = row_axes[col]
+
+            # create the histo_boxplot
+            ax_box, ax_hist = histo_box(
+                performance_dict[marker_set][env].copy(),
+                ax=ax, histbins=15, histplot_kws=histplot_kws, boxplot_kws=boxplot_kws
+            )
+
+            # add in some labels
+            if row == 0:
+                data_label = label_dict[env]
+                ax_box.set_title(f'{data_label}', fontdict=dict(weight='bold', fontsize=12))
+            
+            if marker_set == marker_sets[-1]:  # if the last row
+                ax_hist.set_xlabel("Kendall's $\\tau$")
+            
+            # if it's the first column, set ylabel
+            if col == 0:
+                ax.set_ylabel('count')
+
+            # color in bars of histograph to match their score on the colormap
+            mvp14.color_histogram(ax, cmap=cmap, norm=norm)
+
+            # create a background color for each histogram
+            gradient_image(ax, direction=0.5, transform=ax.transAxes, 
+                           cmap=background_cmap, cmap_range=(0.0, 0.2))
+
+            col += 1
+        
+    # add labels, title, etc
+        
+    # set main title
+    fig.suptitle(f'{performance_name}\n{seed = }\n{level}\n', fontsize=15, y=0.98)
+    plt.tight_layout()  # make it pretty
+    mvp03.decorate_figure(marker_sets, fig, axes, cmap=cmap)
+        
+    # save
+    pdf.savefig(bbox_inches="tight")
+    plt.show()
+    plt.close()
+        
+    pass
+
+
+def create_heatmap_subplots(performance_dict, performance_name, pdf, samppop, locations,
+                            cmap='viridis', use_vmin_vmax=True, marker_sets=['all', 'adaptive', 'neutral']):
+    print(ColorText(f'\nCreating heatmap subplots for {performance_name} ...').bold().custom('gold'))
+    
+    if use_vmin_vmax is True:
+        vmin, vmax = mvp14.get_vmin_vmax(performance_dict)
+    else:
+        vmin = -1
+        vmax = 1
+        
+    # create subplots to fill in
+    fig, axes = plt.subplots(len(marker_sets), 2,
+                             sharey='row',
+                             sharex='col',
+                             figsize=(10, 10))
+        
+    # fill in subplots with histograms
+    heatmaps = defaultdict(dict)
+    for row, marker_set in enumerate(marker_sets):
+        row_axes = axes[row]
+        col = 0  # column counter
+        for env in ['sal_opt', 'temp_opt']:
+            ax = row_axes[col]
+
+            corrs = performance_dict[marker_set][env].copy()
+
+#             if ind_or_pooled == 'ind' and performance_name != 'garden_performance':
+#                 # average across individuals for each population
+#                 ind_corrs = pd.DataFrame(corrs, columns=['performance'])
+#                 ind_corrs['subpopID'] = ind_corrs.index.map(samppop)
+#                 corrs = ind_corrs.groupby('subpopID')['performance'].apply(np.mean)
+
+            # fill in heatmap
+            df = mvp03.blank_dataframe()
+            for garden, corr in corrs.items():
+                x, y = locations.loc[int(garden)]
+                df.loc[y, x] = corr
+            heatmaps[marker_set][env] = df.copy()
+
+            # plot heatmap
+            _ = sns.heatmap(df,
+                            cmap='viridis', cbar=False,
+                            ax=ax, vmin=vmin, vmax=vmax
+                           )
+
+            # add in some labels
+            if row == 0:
+                data_label = label_dict[env]
+                ax.set_title(f'{data_label}', fontdict=dict(weight='bold', fontsize=12))
+
+            if marker_set == marker_sets[-1]:  # if the last row
+                ax.set_xlabel("Longitude (x)")
+
+            if col == 0:  # if the first column
+                ax.set_ylabel('Latitude (y)')
+
+            col += 1
+        
+    # add labels, title, etc
+    fig.suptitle(f'{performance_name}\n{seed = }\n{level}\n', fontsize=15, y=0.98)
+    plt.tight_layout()  # make it pretty
+    mvp03.decorate_figure(marker_sets, fig, axes, cmap=cmap, vmin=vmin, vmax=vmax)
+
+    # save figure
+    pdf.savefig(bbox_inches="tight")
+    plt.show()
+    plt.close()
+    
+    # save objects
+    pkl = op.join(heat_dir, f'{seed}_{performance_name}_heatmaps.pkl')
+    pkldump(heatmaps, pkl)
+    print(f'\n\twrote heatmaps to : {pkl}')
+        
+    pass
+
+
+def fill_slope_heatmaps(marker_sets, heatmaps, vmin, vmax, total_traits=['sal_opt', 'temp_opt']):
+    """Fill in heatmap subplots to display slope of relationship between fitness and offset."""
+    # create subplots to fill in
+    fig, axes = plt.subplots(len(marker_sets), len(total_traits),
+                             sharey='row',
+                             sharex='col',
+                             figsize=(10, 10) if len(total_traits) == 2 else (5, 10))
+    
+    # fill in subplots with histograms
+    for row, marker_set in enumerate(marker_sets):
+        row_axes = axes[row]
+        for col, env in enumerate(total_traits):
+            if len(total_traits) == 2:
+                ax = row_axes[col]
+            else:
+                ax = row_axes
+            
+            # add in some labels
+            if row == 0:
+                data_label = label_dict[env]
+                ax.set_title(f'{data_label}', fontdict=dict(weight='bold', fontsize=12))
+            
+            heatmap = heatmaps[marker_set][env]
+            assert isinstance(heatmap, pd.DataFrame)
+            
+            # plot the heatmap
+            _ = sns.heatmap(heatmap,
+                            cmap='viridis',
+                            cbar=False,
+                            vmin=vmin,
+                            vmax=vmax,
+                            ax=ax)
+            
+            if marker_set == marker_sets[-1]:
+                ax.set_xlabel('Longitude (x)')
+                
+            if col == 0:
+                ax.set_ylabel('Latitude (y)')
+            
+    return fig, axes
+
+
+def create_slope_heatmap_subplots(performance_name, slope_dict, locations, pdf, marker_sets=['all', 'adaptive', 'neutral'], 
+                                  total_traits=['sal_opt', 'temp_opt']):
+    # determine vmin and vmax across all heatmaps
+    minn = math.inf
+    maxx = -math.inf
+    heatmaps = wrap_defaultdict(dict, 2)
+    for (marker_set, env), garden_slopes in unwrap_dictionary(slope_dict):
+            
+        # get slopes and fill in the heatmap
+        heatmap = mvp03.blank_dataframe()
+        for garden, slope in garden_slopes.items():
+            x, y = locations.loc[garden]
+            heatmap.loc[y, x] = slope
+        heatmaps[marker_set][env] = heatmap.copy()
+        
+        # determine min and max
+        hmin = heatmap.min().min()
+        hmax = heatmap.max().max()
+        if hmin < minn:
+            minn = hmin
+        if hmax > maxx:
+            maxx = hmax
+            
+    # fill in subplots with histograms
+    fig, axes = fill_slope_heatmaps(marker_sets, heatmaps, vmin=minn, vmax=maxx, total_traits=total_traits)
+
+    fig.suptitle(f'garden performance slope\n{seed = }\n{level}\n', fontsize=15, y=0.98)
+    plt.tight_layout()  # make it pretty
+    mvp03.decorate_figure(marker_sets, fig, axes, cmap='viridis', vmin=minn, vmax=maxx,
+                          cbar_label="slope of fitness ~ GF offset")
+    
+    # save figure
+    pdf.savefig(bbox_inches="tight")
+    plt.show()
+    plt.close()
+    
+    # save objects
+    pkl = op.join(heat_dir, f'{seed}_{performance_name}_slope_heatmaps.pkl')
+    pkldump(heatmaps, pkl)
+    print(f'\twrote heatmaps to : {pkl}')
+    
+    pass
 
 
 def fig_setup(locations):
@@ -75,7 +429,7 @@ def fig_setup(locations):
 
 
 def garden_performance_scatter(
-    offset, fitness, env, locations, envdata, cols, cmap=None, norm=None, seed=None, fig_dir=None, program='RONA'
+    offset, fitness, env, locations, envdata, cols, pdf, cmap=None, norm=None, seed=None, fig_dir=None, program='RONA'
 ):
     """Create a map of pops using coords, show relationsip between RONA and fitness."""
     figpos, fig, axes = fig_setup(locations)
@@ -91,22 +445,27 @@ def garden_performance_scatter(
         if subplot in range(0, 110, 10):
             ax.set_ylabel(int(y))
         if subplot in range(90, 101, 1):
+#             ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right', rotation_mode='anchor')
+            for label in ax.get_xticklabels():
+                label.set_ha("right")
+                label.set_rotation(45)
+                label.set_rotation_mode('anchor')
             ax.set_xlabel(int(x))
             
     # set colorbar
     sm = ScalarMappable(norm=norm, cmap=cmap)
     sm.set_array([])
     cbar = fig.colorbar(sm, ax=axes[:,:])
-    cbar.ax.set_title(env)
+    cbar.ax.set_title(label_dict[env.split()[-1]])
     
-    fig.supylabel('fitness')
-    fig.supxlabel('predicted offset')
-    fig.suptitle(f'{seed}\n{program} garden performance for {env}\ntransplanted pops colored by home environment')
-#     print('\tgarden_performance_scatter()')
+    # set labels
+    fig.supylabel('fitness', x=0.08, ha='center', va='center', fontsize=14, weight='bold')
+    fig.supxlabel('predicted offset', x=0.431, y=0.045, ha='center', va='center', fontsize=14, weight='bold')
+    fig.suptitle(f'{seed}\n{program} garden performance for {env}\ntransplanted pops colored by home environment\n{level}')
+
+    # save
     if fig_dir is not None:
-        save_pdf(
-            op.join(fig_dir, f'{seed}_{env}_{program}_garden_performance_scatter.pdf')
-        )
+        pdf.savefig(bbox_inches="tight")
     
     plt.show()
     plt.close()
@@ -116,207 +475,68 @@ def garden_performance_scatter(
     pass
 
 
-def get_pop_data(slimdir, seed):
-    """Get coordinates for each population in the simulations."""
-    # get the individuals that were subsampled from full simulation
-    subset = mvp01.read_ind_data(slimdir, seed)
-
-    # get x and y coords for each population
-    locations = subset.groupby('subpopID')[['x', 'y']].apply(np.mean)
-    locations.columns = ['lon', 'lat']  # index = subpopID
-
-    # get envdata for each subpopID
-    envdata = subset.groupby('subpopID')[['sal_opt', 'temp_opt']].apply(np.mean)
-    
-    return subset, locations, envdata
+def color(val, cmap=None, norm=None):
+    """Return rgb on colormap `cmap`."""
+    return cmap(norm(val))[:3]
 
 
-def create_scatter_map(rona, fitness, locations, envdata, marker_set):
-    """Wrapper for garden_performance_scatter()."""
-    print(ColorText("\nCreating scatter maps and calculating performance ...").bold().custom('gold'))
-    garden_performance = defaultdict(dict)  # performance within gardens across transplant pops
-    source_performance = defaultdict(dict)  # performance for transplant pops across gardens
+def scatter_wrapper(offset_dfs, fitness, envdata, locations, pdf, marker_sets=['all', 'adaptive', 'neutral']):
+    """Wrapper for `garden_performance_scatter`."""
+    print(ColorText('\nCreating scatter plots ...').bold().custom('gold'))
+    for marker_set in marker_sets:
+        for home_env in pbar(['sal_opt', 'temp_opt'], desc=marker_set):  # the environment for used to color populations
+            for rona_env in ['sal_opt', 'temp_opt']:  # the environment used to calculate RONA
+                offset = offset_dfs[marker_set][rona_env]  # already transposed properly
+                
+                # color for the environment (temp_opt) of source_pop
+                colormap = 'Reds' if home_env=='temp_opt' else 'Blues_r'
+                cmap = plt.cm.get_cmap(colormap)
+                cols = offset.columns.map(envdata[home_env]).to_series().apply(color, cmap=cmap, norm=norm).tolist()
 
-    garden_slopes = defaultdict(dict)  # slope of relationship between fitness and RONA
-    source_slopes = defaultdict(dict)  # slope of relationship between fitness and RONA
+                garden_performance_scatter(offset,
+                                           fitness,
+                                           f'{label_dict[marker_set]} {rona_env}',
+                                           locations,
+                                           envdata,
+                                           cols,
+                                           pdf,
+                                           norm=norm, cmap=cmap, seed=seed, fig_dir=fig_dir
+                                          )
 
-    for env,rona_dict in rona.items():
-        # format rona predictions in the same format as fitness dataframe
-            # pd.DataFrame(rona[env]).T is necessary so that source deme is col and garden is row
-        rona_offset = pd.DataFrame(rona_dict).T
-        # color for the environment (temp_opt) of source_pop - TODO: infer selected envs from data
-        colormap = 'Reds' if env=='temp_opt' else 'Blues_r'
-        cmap = plt.cm.get_cmap(colormap)
-        cols = rona_offset.columns.map(envdata[env]).to_series().apply(color, cmap=cmap, norm=norm).tolist()
-        garden_performance_scatter(
-            rona_offset, fitness, f'{marker_set}_{env}', locations, envdata, cols,
-            norm=norm, cmap=cmap, seed=seed, fig_dir=fig_dir
-        )
+    pass
+
+
+def fig_wrapper(performance_dicts, samppop, offset_dfs, fitness, envdata, locations):
+    # save histograms and heatmaps
+    saveloc = op.join(fig_dir, f'{seed}_RONA_figures.pdf')
+    with PdfPages(saveloc) as pdf:  # save all figures to one pdf
+        for performance_name in ['garden_performance', 'source_performance']:
+            performance_dict = performance_dicts[performance_name].copy()
+
+            create_histo_subplots(performance_dict, performance_name, pdf, boxplot_kws=dict(
+                                          flierprops={
+                                              'marker': '.',
+                                              'markerfacecolor': 'gray',
+                                              'alpha': 0.5,
+                                              'markeredgewidth' : 0.0  # remove edge
+                                          },
+                                          color='lightsteelblue'
+                                      ))
+
+            create_heatmap_subplots(performance_dict, performance_name, pdf, samppop, locations)
+
+            if performance_name == 'garden_performance':
+                create_slope_heatmap_subplots(performance_name, performance_dicts['garden_slopes'].copy(), locations, pdf)
+
+            if performance_name == 'source_performance':
+                create_slope_heatmap_subplots(performance_name, performance_dicts['source_slopes'].copy(), locations, pdf)
+
+    # save scatterplots separately so computers don't get slow trying to display everything
+    saveloc = op.join(fig_dir, f'{seed}_RONA_figures_scatter.pdf')
+    with PdfPages(saveloc) as pdf:  # save all figures to one pdf
+        scatter_wrapper(offset_dfs, fitness, envdata, locations, pdf)
         
         
-        # garden performance
-        for garden in pbar(fitness.index, desc=f'{env} garden performance'):
-            # retrieve rona for this garden
-            ronadata = pd.Series(rona_dict[garden], dtype=float)
-            
-            # record squared spearman's rho
-            garden_performance[env][garden] = ronadata.corr(fitness.loc[garden],
-                                                            method='spearman')
-            # record slope
-            garden_slopes[env][garden] = linregress(ronadata, fitness.loc[garden]).slope
-
-
-        # population performance
-        for source_pop in pbar(fitness.columns, desc=f'{env} population performance'):
-            # retrieve rona for this pop
-            ronadata = pd.Series(dtype=float)
-            for garden in rona_dict:
-                ronadata.loc[garden] = rona_dict[garden][source_pop]
-            
-            # record spearman's rho
-            source_performance[env][source_pop] = ronadata.corr(fitness[source_pop],
-                                                                method='spearman')
-            
-            # record slope
-            source_slopes[env][source_pop] = linregress(ronadata, fitness[source_pop]).slope
-
-    return garden_performance, source_performance, garden_slopes, source_slopes
-
-
-def blank_dataframe():
-    """Create a defaultdict with default being a blankblank dataframe (landscape map) filled with NaN,
-    columns and index are subpopIDs.
-    
-    Notes
-    -----
-    instantiating with dtype=float is necessary for sns.heatmap (otherwise sns.heatmap(df.astype(float)))
-    """
-    df_dict = defaultdict(lambda: pd.DataFrame(columns=range(1, 11, 1),
-                                               index=reversed(range(1,11,1)),  # so that x=1,y=10 is in top left
-                                               dtype=float))
-    return df_dict
-
-
-def fill_heatmaps(garden_performance, source_performance, garden_slopes, source_slopes, locations, marker_set):
-    """Create dataframe maps to hold information about each garden or source pop using pop coordinates."""
-    print(ColorText(f'\nCreating heatmaps for {marker_set} loci ...').bold().custom('gold'))
-    # create empty dataframes to fill in as heatmaps
-    garden_heat = blank_dataframe()
-    garden_slope_heat = blank_dataframe()
-    source_heat = blank_dataframe()
-    source_slope_heat = blank_dataframe()
-
-    # fill out heat maps
-    print('\tfilling out heatmaps ...')
-    for env in source_performance.keys():
-        for source_pop,performance in source_performance[env].items():
-            x,y = locations.loc[source_pop]
-            
-            # fill out source_heat
-            source_heat[env].loc[y, x] = performance
-            
-            # fill out garden_heat
-            garden_heat[env].loc[y, x] = garden_performance[env][source_pop]
-            
-            # fill out source_slope
-            source_slope_heat[env].loc[y, x] = source_slopes[env][source_pop]
-            
-            # fill out garden slope
-            garden_slope_heat[env].loc[y, x] = garden_slopes[env][source_pop]
-
-    # create figs that show the performance across pops for each garden
-    print('\tsaving heatmaps for performance of transplanted pops within garden ...')
-    for env,heatmap in garden_heat.items():
-        _ = sns.heatmap(heatmap,
-                        cmap='viridis',
-                        cbar_kws={'label': "Spearman's $\\rho$"})
-        
-        plt.title(f'performance in garden for {env = }')
-        plt.xlabel('Longitude (x)')
-        plt.ylabel('Latitude (y)')
-        
-        save_pdf(op.join(fig_dir, f'{seed}_{marker_set}_garden_performance_heatmap-{env}.pdf'))
-        
-        plt.show()
-
-    # create figs that show the performance across gardens for each source
-    print('\n\tsaving heatmaps for the performance across gardens for each source ...')
-    for env,heatmap in source_heat.items():
-        _ = sns.heatmap(heatmap,
-                        cmap='viridis',
-                        cbar_kws={'label': "Spearman's $\\rho$"})
-        
-        plt.title(f'performance for each source across gardens\nfor {env = }')
-        plt.xlabel('Longitude (x)')
-        plt.ylabel('Latitude (y)')
-        
-        save_pdf(op.join(fig_dir, f'{seed}_{marker_set}_source_performance_heatmap-{env}.pdf'))
-        
-        plt.show()
-
-    # create figs for slope of relationship between fitness ~ RONA at each garden for each env
-    print(
-        '\n\tsaving heatmaps for the slope of relationship between fitness ~ RONA at each garden for each env ...'
-    )
-    for env,heatmap in garden_slope_heat.items():
-        _ = sns.heatmap(heatmap,
-                        cmap='viridis',
-                        cbar_kws={'label': "slope of fitness ~ RONA"})
-        plt.title(f'slope in garden for {env = }')
-        plt.xlabel('Longitude (x)')
-        plt.ylabel('Latitude (y)')
-        
-        save_pdf(op.join(fig_dir, f'{seed}_{marker_set}_garden_slope_heatmap-{env}.pdf'))
-        
-        plt.show()
-
-    # create figs for slope of performance for each source pop across gardens
-    print(
-        '\n\tsaving heatmaps for the slope of relationship between fitness ~ RONA for each source pop across gardens for each env ...'
-    )
-    for env,heatmap in source_slope_heat.items():
-        _ = sns.heatmap(heatmap,
-                        cmap='viridis',
-                        cbar_kws={'label': "slope of fitness ~ RONA"})
-        plt.title(f'slope across garden for {env = }')
-        plt.xlabel('Longitude (x)')
-        plt.ylabel('Latitude (y)')
-        
-        save_pdf(op.join(fig_dir, f'{seed}_{marker_set}_source_slope_heatmap-{env}.pdf'))
-        
-        plt.show()
-
-    return garden_heat, source_heat, garden_slope_heat, source_slope_heat
-
-def save_objects(garden_heat, source_heat, garden_slope_heat, source_slope_heat, marker_set):
-    """Save heatmap objects."""
-    print(ColorText(f'\nSaving heatmap objects for {marker_set} loci ...').bold().custom('gold'))
-    for env,heatmap in source_heat.items():
-        heatfile = op.join(heat_dir, f'{seed}_{marker_set}_source_performance_heatmap-{env}.txt')
-        heatmap.to_csv(heatfile, sep='\t', index=True)
-        print('\t', heatfile)
-        
-    print(' ')
-        
-    for env,heatmap in garden_heat.items():
-        heatfile = op.join(heat_dir, f'{seed}_{marker_set}_garden_performance_heatmap-{env}.txt')
-        heatmap.to_csv(heatfile, sep='\t', index=True)
-        print('\t', heatfile)
-        
-    print(' ')
-        
-    for env,heatmap in source_slope_heat.items():
-        heatfile = op.join(heat_dir, f'{seed}_{marker_set}_source_slope_heatmap-{env}.txt')
-        heatmap.to_csv(heatfile, sep='\t', index=True)
-        print('\t', heatfile)
-        
-    print(' ')
-        
-    for env,heatmap in garden_slope_heat.items():
-        heatfile = op.join(heat_dir, f'{seed}_{marker_set}_garden_slope_heatmap-{env}.txt')
-        heatmap.to_csv(heatfile, sep='\t', index=True)
-        print('\t', heatfile)
-    
     pass
 
 
@@ -324,29 +544,27 @@ def main():
     # get pop data
     print(ColorText('\nGetting population information ...').bold().custom('gold'))
     
+    # get fitness matrix for pops
     fitness = load_pooled_fitness_matrix(slimdir, seed)
+
+    # get a list of subsampled individuals, map samp top subpopID, and get population locations for each subpopID
     subset, locations, envdata = get_pop_data(slimdir, seed)
+
+    # map subpopID to list of samps - key = subpopID val = list of individual sample names
+    popsamps = subset.groupby('subpopID')['sample_name'].apply(list).to_dict()
+
+    # map samp to subpopID
+    samppop = dict(zip(subset.index, subset['subpopID']))
     
-    for marker_set in ['all', 'adaptive']:
-        print(ColorText(f'\nValidating RONA using {marker_set} loci ...').bold().custom('gold'))
-        
-        # load RONA estimates
-        rona = pklload(op.join(rona_outdir, f'{seed}_{marker_set}_RONA_results.pkl'))
-
-        # plot relationship between fitness and RONA for each subpopID on a map of subpops
-        data = create_scatter_map(rona, fitness, locations, envdata, marker_set)
-
-        # create heatmaps for performance and slope of relationship between fitness and RONA
-        heatmap_objects = fill_heatmaps(*data, locations, marker_set)
-
-        # save the objects in case we ever want them
-        save_objects(*heatmap_objects, marker_set)
-
+    # calculate correlations within and across gardens
+    performance_dicts, offset_dfs = calculate_performance(fitness)
+    
+    # create figs
+    fig_wrapper(performance_dicts, samppop, offset_dfs, fitness, envdata, locations)
+    
     # done
     print(ColorText(f'\ntime to complete: {formatclock(dt.now() - t1, exact=True)}'))
     print(ColorText('\nDONE!!').bold().green(), '\n')
-
-    pass
 
 
 if __name__ == '__main__':
@@ -357,14 +575,32 @@ if __name__ == '__main__':
 
     # set up timer
     t1 = dt.now()
+    
+    # details about demography and selection
+    level = mvp10.read_params_file(slimdir, seed).loc[seed,'level']
 
     # create dirs
     rona_dir = op.dirname(op.dirname(rona_outdir))
     fig_dir = makedir(op.join(rona_dir, 'validation/figs'))
     heat_dir = makedir(op.join(op.dirname(fig_dir), 'heatmap_objects'))
+    corr_dir = makedir(op.join(op.dirname(fig_dir), 'corrs'))
+    offset_dir = makedir(op.join(op.dirname(fig_dir), 'offset_dfs'))
 
     # set globally
     norm = Normalize(vmin=-1.0, vmax=1.0)
+    
+    # dict for pretty labels in figures
+    label_dict = {
+        'all' : 'all loci',
+        'adaptive' : 'causal loci',
+        'neutral' : 'neutral loci',
+        'sal_opt' : 'sal',
+        'temp_opt' : 'temp'
+    }
+    mvp03.label_dict = label_dict
+    
+    # background color for figures
+    background_cmap = create_cmap(['white', 'gold'], grain=1000)
 
     # print versions of packages and environment
     print(ColorText('\nEnvironment info :').bold().custom('gold'))
@@ -372,3 +608,4 @@ if __name__ == '__main__':
     session_info.show(html=False, dependencies=True)
 
     main()
+
