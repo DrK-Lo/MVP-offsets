@@ -495,6 +495,8 @@ def fill_slope_heatmaps(marker_sets, heatmaps, vmin, vmax, total_traits=['sal_op
                     heatmap = heatmaps[marker_set][which_traits][structcorr].copy()
                 except KeyError as e:
                     print(marker_set, which_traits)
+                    raise e
+                    
                 assert isinstance(heatmap, pd.DataFrame)
 
                 # plot the heatmap
