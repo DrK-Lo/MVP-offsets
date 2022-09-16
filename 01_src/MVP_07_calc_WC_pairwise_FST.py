@@ -59,10 +59,14 @@ def get_gt_data():
 
     # load the adaptive loci
     adaptive_loci = pklload(op.join(gf_training_dir, f'{seed}_adaptive_loci.pkl'))
+    
+    # load the neutral loci
+    neutral_loci = pklload(op.join(gf_training_dir, f'{seed}_neutral_loci.pkl'))
 
     # create subsets (technically `loci_set`=all is not a subset)
     gts = {'all': df.copy(),
-           'adaptive': df.loc[adaptive_loci].copy()}
+           'adaptive': df.loc[adaptive_loci].copy(),
+           'neutral': df.loc[neutral_loci].copy()}
 
     return gts
 
