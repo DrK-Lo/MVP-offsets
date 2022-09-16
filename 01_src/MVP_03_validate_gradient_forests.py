@@ -21,12 +21,15 @@ Dependencies
 - dependent upon code from github.com/brandonlind/pythonimports
 """
 from pythonimports import *
-from myfigs import save_pdf
+from myfigs import histo_box, gradient_image, create_cmap
 
 import MVP_06_validate_RONA as mvp06
+import MVP_10_train_lfmm2_offset as mvp10
+import MVP_13_RDA_validation as mvp13
 
 from matplotlib.colors import Normalize
 from matplotlib.cm import ScalarMappable
+from matplotlib.backends.backend_pdf import PdfPages
 import seaborn as sns
 from scipy.stats import linregress
 
@@ -53,35 +56,34 @@ def load_ind_fitness_matrix(slimdir, seed, subset):
     return fitness
 
 
-def get_offset_predictions():
+def get_offset_predictions(seed):
     """Get offset predictions output by MVP_02_fit_gradient_forests.py."""
     print(ColorText('\nRetrieving predicted offsets ...').bold().custom('gold'))
     # get the predicted offset from files output from fitting created in ../02_fit_gradient_forests.ipynb
-    files = fs(fitting_dir, 'offset')
+    files = fs(fitting_dir, endswith='offset.txt', startswith=f'{seed}')
 
     # make sure just as many RDS files were created from fitting script (ie that all fitting finished)
-    rdsfiles = fs(fitting_dir, endswith='.RDS')
-    assert len(files) == len(rdsfiles)
+    rdsfiles = fs(fitting_dir, endswith='.RDS', startswith=f'{seed}')
+    assert len(files) == len(rdsfiles) == 600  # 100 gardens * 3 marker sets * ind_or_pooled
 
     outfiles = wrap_defaultdict(dict, 3)
     for outfile in files:
-        seed, ind_or_pooled, adaptive_or_all, garden_ID, *suffix = op.basename(outfile).split("_")
-        outfiles[ind_or_pooled][adaptive_or_all][int(garden_ID)] = outfile
+        seed, ind_or_pooled, marker_set, garden_ID, *suffix = op.basename(outfile).split("_")
+        outfiles[ind_or_pooled][marker_set][int(garden_ID)] = outfile
 
     # gather the predicted offset values for each individual in each garden
     offset_series = wrap_defaultdict(list, 2)  # for gathering in next loop
-    for (ind_or_pooled, adaptive_or_all, garden_ID), outfile in unwrap_dictionary(outfiles):
+    for (ind_or_pooled, marker_set, garden_ID), outfile in unwrap_dictionary(outfiles):
         # read in offset projections
         offset = pd.read_table(outfile, index_col=0)
-        offset_series[ind_or_pooled][adaptive_or_all].append(
-            pd.Series(offset['offset'],
-                      name=garden_ID)
+        offset_series[ind_or_pooled][marker_set].append(
+            pd.Series(offset['offset'], name=garden_ID)
         )
 
     # collapse the predicted offset values for each individual in each garden into one data frame
         # - use for correlation calcs in next cell
     offset_dfs = wrap_defaultdict(None, 2)
-    for (ind_or_pooled, adaptive_or_all), series_list in unwrap_dictionary(offset_series):
+    for (ind_or_pooled, marker_set), series_list in unwrap_dictionary(offset_series):
         # collapse all of the offset values from each garden into a single dataframe
         df = pd.concat(series_list,
                        axis=1,
@@ -89,7 +91,12 @@ def get_offset_predictions():
         if ind_or_pooled=='ind':
             df.index = df.index.astype(str)
         # sort by garden_ID, transpose to conform to convention of `fitness_mat`
-        offset_dfs[ind_or_pooled][adaptive_or_all] = df[sorted(df.columns)].T
+        offset_dfs[ind_or_pooled][marker_set] = df[sorted(df.columns)].T
+
+    # save offsets
+    pkl = op.join(offset_dir, f'{seed}_offset_dfs.pkl')
+    pkldump(offset_dfs, pkl)
+    print(f'\n\twrote offset_dfs to : {pkl}')
         
     return offset_dfs
 
@@ -107,300 +114,484 @@ def blank_dataframe():
     return df
 
 
-def create_heatmap(corrs, ind_or_pooled, adaptive_or_all, title, locations, samppop, performance='garden', save=True):
-    """Create a heatmap of the landscape performance - npop by npop.
+def calculate_performance(offset_dfs, fitness_mat, popsamps):
+    print(ColorText('\nCalculating performance ...').bold().custom('gold'))
+    
+    garden_performance = wrap_defaultdict(dict, 2)
+    source_performance = wrap_defaultdict(dict, 2)
+    garden_slopes = wrap_defaultdict(pd.Series(dtype=float).copy, 2)
+    source_slopes = wrap_defaultdict(pd.Series(dtype=float).copy, 2)
+    for (ind_or_pooled, marker_set), offset in unwrap_dictionary(offset_dfs):
+        fitness = fitness_mat[ind_or_pooled].copy()
+        assert fitness.shape == offset.shape
+
+        # correlation of fitness and offset within gardens across transplants
+        garden_performance[ind_or_pooled][marker_set] = offset.corrwith(
+            fitness,
+            axis='columns',  # across columns for each row
+            method='kendall'
+        )
+        
+        # slope of fitness ~ offset within gardens
+        for garden in fitness.index:
+            garden_slopes[ind_or_pooled][marker_set].loc[garden] = linregress(
+                offset.loc[garden, fitness.columns],
+                fitness.loc[garden]
+            ).slope
+
+        # correlation of fitness and offset for transplants across gardens
+        source_performance[ind_or_pooled][marker_set] = offset.corrwith(
+            fitness,                                         
+            axis='index',  # across rows for each column
+            method='kendall')
+        
+        # slope of fitness ~ offset across gardens for individual pops
+        if ind_or_pooled == 'ind':
+            # get average slope across individuals for each source population
+            for source_pop in fitness.index:
+                samps = popsamps[source_pop]
+                slopes = []
+                for samp in samps:
+                    slopes.append(
+                        linregress(offset[samp].loc[fitness.index], fitness[samp]).slope
+                    )
+                source_slopes[ind_or_pooled][marker_set].loc[source_pop] = np.mean(slopes)
+        else:
+            # get slope for each source pop
+            for source_pop in fitness.columns:
+                # record slope
+                source_slopes[ind_or_pooled][marker_set].loc[int(source_pop)] = linregress(
+                    offset[source_pop],
+                    fitness[source_pop]
+                ).slope
+        
+    # zip up the performance dictionaries
+    performance_dicts = {'garden_performance' : garden_performance,
+                         'source_performance' : source_performance,
+                         'garden_slopes' : garden_slopes,
+                         'source_slopes' : source_slopes}
+   
+    # save
+    pkl = op.join(corr_dir, f'{seed}_performance_dicts.pkl')
+    pkldump(performance_dicts, pkl)
+    print(f'\tsaved performance calculations to:\n\t{pkl}')
+
+    return performance_dicts
+
+
+def decorate_figure(marker_sets, fig, axes, cmap, vmin=-1, vmax=1, cbar_label="Kendall's $\\tau$"):
+    """Add color bar and row labels for each marker set in `marker_sets`.
+    
+    Parameters
+    ----------
+    marker_sets - list
+        list of marker sets
+    fig, axes
+        matplotlib constructors
+    cmap
+        color map
+    vmin, vmax
+        the extent of values for the min and max of color map
+    cbar_label - str
+        label for color bar
+    """
+    # set marker_set label - need to do after filling in all ax's so that ylim is constant
+    from matplotlib.lines import Line2D
+
+    # set colorbar
+    norm = Normalize(vmin=vmin, vmax=vmax)
+    sm = ScalarMappable(norm=norm, cmap=cmap)
+    sm.set_array([])
+    cbar_ax = fig.add_axes([1.01, 0.094, 0.02, 0.65])
+    cbar = fig.colorbar(sm, ax=axes.ravel().tolist(), cax=cbar_ax)
+    cbar.set_label(cbar_label, fontdict=dict(fontsize=15))
+    
+    # add labels
+    for row, marker_set in enumerate(marker_sets):
+        if isinstance(axes[0], np.ndarray):
+            ax = axes[row][0]
+        else:
+            ax = axes[row]
+        ymin, ymax = ax.get_ylim()
+        ypos = ymin + ((ymax - ymin) / 2)  # center on axis
+
+        xmin, xmax = ax.get_xlim()
+        xpos = xmin - (0.20 * (xmax - xmin))  # subtract to move left of figure
+    
+        ax.text(xpos, ypos, label_dict[marker_set], rotation='vertical', va='center',
+                fontdict=dict(weight='bold', fontsize=12)
+               )
+        
+    pass
+
+
+def create_histo_subplots(performance_dict, performance_name, pdf, cmap='viridis', N=5,
+                          marker_sets=['all', 'adaptive', 'neutral'],
+                          histplot_kws={}, boxplot_kws={}):
+    """Create a panel of histograms for performance of either garden or source (within `performance_dict`).
+    
+    Parameters
+    ----------
+    performance_dict - nested dictionary
+        - contstructed as - performance_dict[ind_or_pooled][marker_set][which_traits][structcorr]
+        - the final value is a pandas.Series of Kendall's tau validation scores (cor between offset
+            and prediction)
+    performance_name - str
+        - the type of performance measured, used for figure label and file; either 'garden performance'
+            or 'source performance'
+    cmap
+        - the type of color map to signify the sign and magnitude of Kendall's tau
+    N - int
+        - the number of breaks in the color map
+    marker_sets - list
+        - a list of marker sets - see `label_dict`
+    histplot_kws - dict
+        - kwargs passed to histo_box
+    boxplot_kws - dict
+        - kwargs passed to histo_box
+        
     
     Notes
     -----
-    - if individual data is input, data will be average per population
-    
+        - creates one figure for pooled data and another figure for individual data
+        - each figure contains rows (one for each marker set in `marker_sets`) and two columns
+            each for 1-env RDA and 2-env RDA (where the two columns are RDAs with(out) population
+            structure correction)
     """
-
-    if ind_or_pooled == 'ind' and performance != 'garden':
-        # average across individuals for each population
-        ind_corrs = pd.DataFrame(corrs, columns=['performance'])
-        ind_corrs['subpopID'] = ind_corrs.index.map(samppop)
-        corrs = ind_corrs.groupby('subpopID')['performance'].apply(np.mean)
+    print(ColorText(f'\nCreating histo boxplots for {performance_name} ...').bold().custom('gold'))
+    
+    # get color map
+    if isinstance(cmap, str):
+        cmap = plt.cm.get_cmap(cmap, lut=N)
         
-    # fill in heatmap
-    df = blank_dataframe()
-    for garden,corr in corrs.items():
-        x, y = locations.loc[garden]
-        df.loc[y, x] = corr
-
-    # plot heatmap
-    _ = sns.heatmap(df,
-                    cmap='viridis',
-                    cbar_kws={'label': "Spearman's $\\rho$"})
-    plt.title(title)
-    plt.xlabel('Longitude (x)')
-    plt.ylabel('Latitude (y)')
-
-    if save is True:
-        save_pdf(
-            op.join(fig_dir, f'{seed}_{ind_or_pooled}_{adaptive_or_all}_GF_{performance}_performance_heatmap.pdf')
+    # update kwargs
+    if 'edgecolor' not in keys(histplot_kws):
+        histplot_kws.update(
+            dict(edgecolor='white')
         )
-    
-    plt.show()
-    plt.close()
-    
-    pass
+    if 'linewidth' not in keys(boxplot_kws):
+        boxplot_kws.update(
+            dict(linewidth=0.80)
+        )
 
-
-def print_dataset(dataset, length=46):
-    """Print three lines, first and third are repetead ticks, second is centered dataset name."""
-    ticks = '-' * length
-    
-    nchars = len(dataset)  # add 1 for space
-    before = math.ceil((length - nchars) / 2)
-    after = length - before - nchars
-    
-    # first divider
-    print(
-        ColorText(ticks).bold().custom('red')
-    )
-    # dataset
-    print(
-        ColorText(' ' * before + \
-                  dataset + \
-                  ' ' * after).bold().custom('red')
-    )
-    # second divider
-    print(
-        ColorText(ticks).bold().custom('red')
-    )
-    
-    pass
-
-
-def sample_performance(offset, fitness, ind_or_pooled, adaptive_or_all, locations):
-    # set up figure
-    figpos, fig, axes = mvp06.fig_setup(locations)
-    
-    # color for the environment (temp_opt) of source_pop - TODO: infer selected envs from data
-    colormap = 'Reds' if env=='temp_opt' else 'Blues_r'
-    cmap = plt.cm.get_cmap(colormap)
-    if ind_or_pooled == 'ind':
-        cols = offset.columns.map(samppop).map(envdata[env]).to_series().apply(mvp06.color, cmap=cmap, norm=norm)
-    else:
-        cols = offset.columns.map(envdata[env]).to_series().apply(mvp06.color, cmap=cmap, norm=norm)
+    # create figs
+    # create subplots to fill in
+    fig, axes = plt.subplots(len(marker_sets), 2,
+                             sharey=False,
+                             figsize=(10, 10))
         
-    # create each of the population figures in the order matplotlib puts them into the figure
-    for subplot,ax in enumerate(axes.flat):
-        sample = figpos[subplot]  # which pop now?
-        ax.scatter(offset[sample],
-                   fitness[sample],
-                   c=cols)
-        # decide if I need to label longitude (x) or latitude (y) axes
-        x,y = locations.loc[samppop[sample]]
-        if subplot in range(0, 110, 10):
-            ax.set_ylabel(int(y))
-        if subplot in range(90, 101, 1):
-            ax.set_xlabel(int(x))
-    
-    pass
+    # fill in subplots with histograms
+    for row, marker_set in enumerate(marker_sets):
+        row_axes = axes[row]
+        col = 0  # column counter
+        for ind_or_pooled in ['ind', 'pooled']:
+            ax = row_axes[col]
 
+            # create the histo_boxplot
+            ax_box, ax_hist = histo_box(
+                performance_dict[ind_or_pooled][marker_set].copy(),
+                ax=ax, histbins=15, histplot_kws=histplot_kws, boxplot_kws=boxplot_kws
+            )
 
-def source_performance_slope_heatmap_and_boxplot(offset, fitness, ind_or_pooled, adaptive_or_all, popsamps, locations):
-    """Create a heatmap for each source population that displays average slope of regression: fitness ~ offset."""
-    if ind_or_pooled == 'ind':
-        # 1. HEATMAP
-        # 1.1 get slopes
-        all_slopes = defaultdict(list)  # for boxplot
-        average_slopes = {}  # for heatmap
-        for source_pop in fitness.index:
-            samps = popsamps[source_pop]
-
-            for samp in samps:
-                all_slopes[source_pop].append(
-                        linregress(offset[samp], fitness[samp]).slope
-                )
-            average_slopes[source_pop] = np.mean(all_slopes[source_pop])
+            # add in some labels
+            if row == 0:
+                data_label = label_dict[ind_or_pooled]
+                ax_box.set_title(f'{data_label}', fontdict=dict(weight='bold', fontsize=12))
             
-        # 1.2 create heatmap
-        heatmap = blank_dataframe()
-        for source_pop,slope in average_slopes.items():
-            x,y = locations.loc[source_pop]
-            heatmap.loc[y, x] = slope
-        plt.close()
-        _ = sns.heatmap(heatmap,
-                        cmap='viridis',
-                        cbar_kws={'label': "slope of fitness ~ offset"})
-        plt.title(f'average slope per source pop for {ind_or_pooled} {adaptive_or_all}')
-        plt.xlabel('Longitude (x)')
-        plt.ylabel('Latitude (y)')
+            if marker_set == marker_sets[-1]:  # if the last row
+                ax_hist.set_xlabel("Kendall's $\\tau$")
+            
+            # if it's the first column, set ylabel
+            if col == 0:
+                ax.set_ylabel('count')
 
-        save_pdf(op.join(fig_dir, f'{seed}_{ind_or_pooled}_{adaptive_or_all}_source_slope_heatmap.pdf'))
-        plt.show()
-        plt.close()
+            # color in bars of histograph to match their score on the colormap
+            mvp14.color_histogram(ax, cmap=cmap, norm=norm)
+
+            # create a background color for each histogram
+            gradient_image(ax, direction=0.5, transform=ax.transAxes, 
+                           cmap=background_cmap, cmap_range=(0.0, 0.2))
+
+            col += 1
         
-        # 2. boxplot
-        # 2.1 create fig
-        figpos, fig, axes = mvp06.fig_setup(locations)
-        for subplot,ax in enumerate(axes.flat):
-            source_pop = figpos[subplot]
-            ax.boxplot(all_slopes[source_pop])
-            ax.set_xlabel(None)
-            # decide if I need to label longitude (x) or latitude (y) axes
-            x,y = locations.loc[source_pop]  
-            if subplot in range(0, 110, 10):
-                ax.set_ylabel(int(y))
-            if subplot in range(90, 101, 1):
-                ax.set_xlabel(int(x))
-        # 2.2 decorate fig
-        fig.supylabel('slope of individual fitness ~ offset')
-        fig.suptitle(f'{seed}\nGF {ind_or_pooled} source performance distribution')
-
-        save_pdf(
-            op.join(fig_dir, f'{seed}_{ind_or_pooled}_{adaptive_or_all}_GF_source_performance_boxplot.pdf')
-        )
-
-        plt.show()
-        plt.close()
+    # add labels, title, etc
         
-    else:  # pooled
-        # 1. calculate slopes
-        slopes = {}
-        for source_pop in fitness.index:
-            slopes[source_pop] = linregress(offset[source_pop], fitness[source_pop]).slope
-        # 2. fill heatmap
-        heatmap = blank_dataframe()
-        for source_pop,slope in slopes.items():
-            x,y = locations.loc[source_pop]
-            heatmap.loc[y, x] = slope
-        # 3. show heatmap
-        _ = sns.heatmap(heatmap,
-                        cmap='viridis',
-                        cbar_kws={'label': "slope of fitness ~ offset"})
-        plt.title(f'slope per source pop for {ind_or_pooled} {adaptive_or_all}')
-        plt.xlabel('Longitude (x)')
-        plt.ylabel('Latitude (y)')
-
-        save_pdf(op.join(fig_dir, f'{seed}_source_slope_heatmap-{ind_or_pooled}_{adaptive_or_all}.pdf'))
-        plt.show()
-        plt.close()
+    # set main title
+    fig.suptitle(f'{performance_name}\n{seed = }\n{level}\n', fontsize=15, y=0.98)
+    plt.tight_layout()  # make it pretty
+    decorate_figure(marker_sets, fig, axes, cmap=cmap)
         
-    pass
-
-
-def garden_performance_slope_heatmap(offset, fitness, ind_or_pooled, adaptive_or_all, locations):
-    """Create a heatmap for each common garden that displays slope of regression: fitness ~ offset."""
-    # get slopes and fill in the heatmap
-    heatmap = blank_dataframe()
-    for garden in fitness.index:
-        x,y = locations.loc[garden]
-        heatmap.loc[y, x] = linregress(offset.loc[garden], fitness.loc[garden]).slope
-
-    # plot the heatmap
-    _ = sns.heatmap(heatmap,
-                    cmap='viridis',
-                    cbar_kws={'label': "slope of fitness ~ GF offset"})
-    plt.title(f'slope in garden for {ind_or_pooled} {adaptive_or_all}')
-    plt.xlabel('Longitude (x)')
-    plt.ylabel('Latitude (y)')
-
-#     print('\tgarden_performance_slope_heatmap()')
-    save_pdf(op.join(fig_dir, f'{seed}_{ind_or_pooled}_{adaptive_or_all}_GF_garden_slope_heatmap.pdf'))
-
+    # save
+    pdf.savefig(bbox_inches="tight")
     plt.show()
     plt.close()
+        
+    pass
+
+
+def fill_slope_heatmaps(marker_sets, heatmaps, vmin, vmax):
+    """Fill in heatmap subplots to display slope of relationship between fitness and offset."""
+    # create subplots to fill in
+    fig, axes = plt.subplots(len(marker_sets), 2,
+                             sharey='row',
+                             sharex='col',
+                             figsize=(10, 10))
+    
+    # fill in subplots with histograms
+    for row, marker_set in enumerate(marker_sets):
+        row_axes = axes[row]
+        for col, ind_or_pooled in enumerate(['ind', 'pooled']):
+            ax = row_axes[col]
+            
+            # add in some labels
+            if row == 0:
+                data_label = label_dict[ind_or_pooled]
+                ax.set_title(f'{data_label}', fontdict=dict(weight='bold', fontsize=12))
+            
+            heatmap = heatmaps[ind_or_pooled][marker_set]
+            if not isinstance(heatmap, pd.DataFrame):  # TODO REMOVE TO ENFORCE SNS ERROR BELOW
+                continue
+            
+            # plot the heatmap
+            _ = sns.heatmap(heatmap,
+                            cmap='viridis',
+                            cbar=False,
+                            vmin=vmin,
+                            vmax=vmax,
+                            ax=ax)
+            
+            if marker_set == marker_sets[-1]:
+                ax.set_xlabel('Longitude (x)')
+                
+            if col == 0:
+                ax.set_ylabel('Latitude (y)')
+            
+    return fig, axes
+    
+# def create_garden_slope_plots(performance_name, slope_dict, locations, pdf, marker_sets=['all', 'adaptive', 'neutral']):
+#     # determine vmin and vmax
+#     minn = math.inf
+#     maxx = -math.inf
+#     heatmaps = wrap_defaultdict(dict, 2)
+#     for (ind_or_pooled, marker_set), garden_slopes in unwrap_dictionary(slope_dict):
+#         fitness = fitness_mat[ind_or_pooled].copy()
+            
+#         # get slopes and fill in the heatmap
+#         heatmap = blank_dataframe()
+#         for garden, slope in garden_slopes.items():
+#             x,y = locations.loc[garden]
+#             heatmap.loc[y, x] = slope
+#         heatmaps[ind_or_pooled][marker_set] = heatmap.copy()
+            
+#         hmin = heatmap.min().min()
+#         hmax = heatmap.max().max()
+#         if hmin < minn:
+#             minn = hmin
+#         if hmax > maxx:
+#             maxx = hmax
+    
+#     # fill in subplots with histograms
+#     fig, axes = fill_slope_heatmaps(marker_sets, heatmaps, vmin=minn, vmax=maxx)
+
+#     fig.suptitle(f'garden performance slope\n{seed = }\n{level}\n', fontsize=15, y=0.98)
+#     plt.tight_layout()  # make it pretty
+#     decorate_figure(marker_sets, fig, axes, cmap='viridis', vmin=minn, vmax=maxx,
+#                     cbar_label="slope of fitness ~ GF offset")
+    
+#     pdf.savefig(bbox_inches="tight")
+#     plt.show()
+#     plt.close()
+    
+#     pass
+
+
+def create_scatter_plots(offset_dfs, fitness_mat, locations, envdata, samppop, pdf,
+                                   marker_sets=['all', 'adaptive', 'neutral']):
+
+    for ind_or_pooled in ['ind', 'pooled']:
+        for row, marker_set in enumerate(marker_sets):
+#             try:
+            offset = offset_dfs[ind_or_pooled][marker_set].copy()
+            fitness = fitness_mat[ind_or_pooled].copy()
+#             except KeyError as e:  # TODO REMOVE THIS SO ERROR OCCURS
+#                 continue                
+            
+            for env, env_series in envdata.items():
+                colormap = 'Reds' if env=='temp_opt' else 'Blues_r'
+                cmap = plt.cm.get_cmap(colormap)
+                
+                if ind_or_pooled == 'ind':
+                    cols = offset.columns.map(samppop).map(env_series).to_series().apply(mvp06.color,
+                                                                                         cmap=cmap,
+                                                                                         norm=norm)
+                else:
+                    cols = offset.columns.map(env_series).to_series().apply(mvp06.color,
+                                                                            cmap=cmap,
+                                                                            norm=norm)
+                    
+                mvp06.garden_performance_scatter(offset,
+                                                 fitness,
+                                                 f'{ind_or_pooled}_{label_dict[marker_set]}_{env}',
+                                                 locations,
+                                                 env_series,
+                                                 cols,
+                                                 pdf,
+                                                 norm=norm, cmap=cmap, seed=seed, fig_dir=fig_dir, program='GF')
+                plt.close()  # needed so that garden_performance_slope_heatmap doesn't create fig on top of this
+                
+    pass
+
+
+def create_slope_heatmap_subplots(performance_name, slope_dict, locations, pdf, marker_sets=['all', 'adaptive', 'neutral']):
+    # determine vmin and vmax, create heatmap dataframes
+    minn = math.inf
+    maxx = -math.inf
+    heatmaps = wrap_defaultdict(dict, 2)
+    for (ind_or_pooled, marker_set), garden_slopes in unwrap_dictionary(slope_dict):
+        print(f'{ind_or_pooled = } {marker_set = }')
+
+        # get slopes and fill in the heatmap
+        heatmap = blank_dataframe()
+        for garden, slope in garden_slopes.items():  # if performance_name == 'source_performance', garden=source_pop
+            x, y = locations.loc[garden]
+            heatmap.loc[y, x] = slope
+
+        heatmaps[ind_or_pooled][marker_set] = heatmap.copy()
+
+        hmin = heatmap.min().min()
+        hmax = heatmap.max().max()
+        if hmin < minn:
+            minn = hmin
+        if hmax > maxx:
+            maxx = hmax
+
+    # fill in subplots with histograms
+    fig, axes = fill_slope_heatmaps(marker_sets, heatmaps, vmin=minn, vmax=maxx)
+
+    fig.suptitle(f'source performance slope\n{seed = }\n{level}\n', fontsize=15, y=0.98)
+    plt.tight_layout()  # make it pretty
+    decorate_figure(marker_sets, fig, axes, cmap='viridis', vmin=minn, vmax=maxx,
+                    cbar_label="slope of fitness ~ GF offset")
+
+    # save figure
+    pdf.savefig(bbox_inches="tight")
+    plt.show()
+    plt.close()
+    
+    # save heatmaps
+    pkl = op.join(heat_dir, f'{seed}_{performance_name}_slope_heatmaps.pkl')
 
     pass
 
 
-def fig_wrapper(offset_dfs, fitness_mat, locations, samppop, envdata, popsamps):
-    """Create a bunch o' figs."""
-    print(ColorText('\nCreating figs ...').bold().custom('gold'))
+def create_heatmap_subplots(performance_dict, performance_name, pdf, samppop, locations,
+                            cmap='viridis', use_vmin_vmax=True, marker_sets=['all', 'adaptive', 'neutral']):
+    print(ColorText(f'\nCreating heatmap subplots for {performance_name} ...').bold().custom('gold'))
     
-    # performance (spearman's rho) and slopes of relationship from fitness ~ GF offset
-    garden_performance = wrap_defaultdict(None, 2)
-    garden_slopes = wrap_defaultdict(None, 2)
-    individual_performance = wrap_defaultdict(None, 2)
-    individual_slopes = wrap_defaultdict(None, 2)
-    for (ind_or_pooled, adaptive_or_all), offset in unwrap_dictionary(offset_dfs):
-        # 1 - GET DATA
-        # 1.1 divide figures by dataset when printing
-        print_dataset(f'{ind_or_pooled} {adaptive_or_all}')
+    if use_vmin_vmax is True:
+        vmin, vmax = mvp14.get_vmin_vmax(performance_dict)
+    else:
+        vmin = -1
+        vmax = 1
         
-        # 1.2 get the appropriate fitness matrix
-        fitness = fitness_mat[ind_or_pooled].copy()
+    # create subplots to fill in
+    fig, axes = plt.subplots(len(marker_sets), 2,
+                             sharey='row',
+                             sharex='col',
+                             figsize=(10, 10))
         
-        
-        # 2 - GARDEN PERFORMANCE - how well offset was predicted at the common garden location across samples
-        # 2.1 spearman's correlation coefficient (val) for each garden (key)
-        garden_performance[ind_or_pooled][adaptive_or_all] = offset.corrwith(fitness,
-                                                                             axis='columns',  # across columns for each row
-                                                                             method='spearman')
-        # 2.2 plot histogram
-        garden_performance[ind_or_pooled][adaptive_or_all].hist()
-        title = f'{seed}\ngarden performance\ndata={ind_or_pooled} loci={adaptive_or_all}'
-        plt.title(title)
-        plt.ylabel('count')
-        plt.xlabel("Spearman's $\\rho$")
-        save_pdf(
-            op.join(fig_dir, f'{seed}_{ind_or_pooled}_{adaptive_or_all}_GF_garden_performance_histogram.pdf')
-        )
-        plt.show()
-        plt.close()
-        
-        # 2.3 create heatmap
-        create_heatmap(garden_performance[ind_or_pooled][adaptive_or_all],
-                       ind_or_pooled,
-                       adaptive_or_all,
-                       title,
-                       locations,
-                       samppop)
-        
-        # 2.4 calculate and plot slope of relationship between fitness ~ offset at each garden
-        # color for the environment (temp_opt, sal_opt) of source_pop - TODO: infer selected envs from data
-        for env,env_series in envdata.items():
-            colormap = 'Reds' if env=='temp_opt' else 'Blues_r'
-            cmap = plt.cm.get_cmap(colormap)
-            if ind_or_pooled == 'ind':
-                cols = offset.columns.map(samppop).map(env_series).to_series().apply(mvp06.color, cmap=cmap, norm=norm)
-            else:
-                cols = offset.columns.map(env_series).to_series().apply(mvp06.color, cmap=cmap, norm=norm)
-            mvp06.garden_performance_scatter(offset, fitness, f'{ind_or_pooled}_{adaptive_or_all}_{env}', locations, env_series,
-                                             cols, norm=norm, cmap=cmap, seed=seed, fig_dir=fig_dir, program=f'GF')
-            plt.close()  # needed so that garden_performance_slope_heatmap doesn't create fig on top of this
-        
-        # 2.5 calculate the slope of the linear model between fitness ~ offset at each garden
-        garden_performance_slope_heatmap(offset, fitness, ind_or_pooled, adaptive_or_all, locations); plt.close()
-        
-        # 3 - SAMPLE-LEVEL PERFORMACE - how well performace was predicted for the sample across gardens
-        # 3.1 spearman's correlation coefficient for each individual or pool
-        individual_performance[ind_or_pooled][adaptive_or_all] = offset.corrwith(fitness,                                         
-                                                                                 axis='index', # across rows for each column
-                                                                                 method='spearman')
-        
-        # 3.2 plot histogram
-        individual_performance[ind_or_pooled][adaptive_or_all].hist()
-        name = 'source pool' if ind_or_pooled=='pooled' else 'individual'
-        title = f'{seed}\n{name} performance\ndata={ind_or_pooled} loci={adaptive_or_all}'
-        plt.title(title)
-        save_pdf(
-            op.join(fig_dir, f'{seed}_{ind_or_pooled}_{adaptive_or_all}_{name}_GF_performance_histogram.pdf')
-        )
-        plt.show()
-        plt.close()
+    # fill in subplots with histograms
+    heatmaps = defaultdict(dict)
+    for row, marker_set in enumerate(marker_sets):
+        row_axes = axes[row]
+        col = 0  # column counter
+        for ind_or_pooled in ['ind', 'pooled']:
+            ax = row_axes[col]
 
-        # 3.3 create heatmap
-        pkldump(
-            individual_performance[ind_or_pooled][adaptive_or_all],
-            op.join(validation_dir, 
-                    f'{seed}_{ind_or_pooled}_{adaptive_or_all}_corrs.pkl')
-        )
-#         pkldump(samppop, '/work/lotterhos/MVP-Offsets/mypractice_20210308/gradient_forests/samppop.pkl')
-        create_heatmap(individual_performance[ind_or_pooled][adaptive_or_all],
-                       ind_or_pooled,
-                       adaptive_or_all,
-                       title.replace('individual', 'average individual'),  # replace only happens when 'individual' is in title
-                       locations,
-                       samppop,
-                       performance='individual')
+            corrs = performance_dict[ind_or_pooled][marker_set].copy()
+
+            if ind_or_pooled == 'ind' and performance_name != 'garden_performance':
+                # average across individuals for each population
+                ind_corrs = pd.DataFrame(corrs, columns=['performance'])
+                ind_corrs['subpopID'] = ind_corrs.index.map(samppop)
+                corrs = ind_corrs.groupby('subpopID')['performance'].apply(np.mean)
+
+            # fill in heatmap
+            df = blank_dataframe()
+            for garden, corr in corrs.items():
+                x, y = locations.loc[int(garden)]
+                df.loc[y, x] = corr
+            heatmaps[marker_set][ind_or_pooled] = df.copy()
+
+            # plot heatmap
+            _ = sns.heatmap(df,
+                            cmap='viridis', cbar=False,
+                            ax=ax, vmin=vmin, vmax=vmax
+                           )
+
+            # add in some labels
+            if row == 0:
+                data_label = label_dict[ind_or_pooled]
+                ax.set_title(f'{data_label}', fontdict=dict(weight='bold', fontsize=12))
+
+            if marker_set == marker_sets[-1]:  # if the last row
+                ax.set_xlabel("Longitude (x)")
+
+            if col == 0:  # if the first column
+                ax.set_ylabel('Latitude (y)')
+
+            col += 1
         
-        # 3.4 calculate and plot slope of relationship between fitness ~ offset for each ind/pool across gardens
-        source_performance_slope_heatmap_and_boxplot(offset, fitness, ind_or_pooled, adaptive_or_all, popsamps, locations)
+    # add labels, title, etc
+    fig.suptitle(f'{performance_name}\n{seed = }\n{level}\n', fontsize=15, y=0.98)
+    plt.tight_layout()  # make it pretty
+    decorate_figure(marker_sets, fig, axes, cmap=cmap, vmin=vmin, vmax=vmax)
+
+    # save figure
+    pdf.savefig(bbox_inches="tight")
+    plt.show()
+    plt.close()
+    
+    # save heatmaps
+    pkl = op.join(heat_dir, f'{seed}_{performance_name}_heatmaps.pkl')
+    pkldump(heatmaps, pkl)
+    print(f'\n\tSaved {performance_name} heatmaps to: {pkl}')
+        
+    pass
+
+def fig_wrapper(performance_dicts, offset_dfs, fitness_mat, locations, samppop, popsamps, envdata):
+
+    saveloc = op.join(fig_dir, f'{seed}_GF_figures.pdf')
+    with PdfPages(saveloc) as pdf:  # save all figures to one pdf
+        for performance_name in ['garden_performance', 'source_performance']:
+            performance_dict = performance_dicts[performance_name].copy()
+            # garden and source performance figs
+            create_histo_subplots(performance_dict,
+                                  performance_name, 
+                                  pdf,
+                                  boxplot_kws=dict(
+                                      flierprops={
+                                          'marker': '.',
+                                          'markerfacecolor': 'gray',
+                                          'alpha': 0.5,
+                                          'markeredgewidth' : 0.0  # remove edge
+                                      },
+                                      color='lightsteelblue'
+                                  ))
+
+            # garden and source performance heatmaps
+            create_heatmap_subplots(performance_dict, performance_name, pdf, samppop, locations)
+
+            if performance_name == 'garden_performance':
+                create_slope_heatmap_subplots(performance_name, performance_dict['garden_slopes'], locations, pdf)
+
+            if performance_name == 'source_performance':
+                create_slope_heatmap_subplots(performance_name, performance_dict['source_slopes'], locations, pdf)
+                
+        # color for the environment (temp_opt, sal_opt) of source_pop - TODO: infer selected envs from data
+        create_scatter_plots(offset_dfs, fitness_mat, locations, envdata, samppop, pdf)
+
+    pass
 
 
 def main():
@@ -417,14 +608,18 @@ def main():
     fitness_mat = {'ind': load_ind_fitness_matrix(slimdir, seed, subset),
                    'pooled': mvp06.load_pooled_fitness_matrix(slimdir, seed)}
     
-    # get predicted ofset
-    offset_dfs = get_offset_predictions()
+    # get predicted offset
+    offset_dfs = get_offset_predictions(seed)
     
-    fig_wrapper(offset_dfs, fitness_mat, locations, samppop, envdata, popsamps)
+    # calculate validation scores
+    performance_dicts = calculate_performance(offset_dfs, fitness_mat, popsamps)
+    
+    # create figs
+    fig_wrapper(performance_dicts, offset_dfs, fitness_mat, locations, samppop, popsamps, envdata)
     
     # DONE!
     print(ColorText('\nDONE!!').bold().green())
-    print(ColorText(f'\ttime to complete: {formatclock(dt.now() - t1, exact=True)}\n'))
+    print(f'\ttime to complete: {formatclock(dt.now() - t1, exact=True)}\n')
     pass
 
 
@@ -437,6 +632,13 @@ if __name__ == '__main__':
     # set up timer
     t1 = dt.now()
     
+    # background color for figures
+    background_cmap = create_cmap(['white', 'gold'], grain=1000)
+    
+    # details about demography and selection
+    level = mvp10.read_params_file(slimdir, seed).loc[seed, 'level']
+    mvp06.level = level
+    
     # print versions of packages and environment
     print(ColorText('\nEnvironment info :').bold().custom('gold'))
     latest_commit()
@@ -446,9 +648,19 @@ if __name__ == '__main__':
     fitting_dir = op.join(gf_parentdir, 'fitting/fitting_outfiles')
     training_outdir = op.join(gf_parentdir, 'training/training_outfiles')
     fig_dir = makedir(op.join(gf_parentdir, 'validation/figs'))
-    validation_dir = op.dirname(fig_dir)
+    corr_dir = makedir(op.join(op.dirname(fig_dir), 'corrs'))
+    offset_dir = makedir(op.join(op.dirname(fig_dir), 'offset_dfs'))
     
-    # set global variables needed for `mvp06.color` and `mvp06.garden_performance_scatter`
-    norm=Normalize(vmin=-1.0, vmax=1.0)
+    # dict for pretty labels in figures
+    label_dict = {
+        'all' : 'all loci',
+        'adaptive' : 'causal loci',
+        'neutral' : 'neutral loci',
+        'ind': 'individual',
+        'pooled': 'pooled'
+    }
+    
+    # set global variables needed for `mvp06.color`, `mvp06.garden_performance_scatter`, and `mvp14.color_histogram`
+    norm = Normalize(vmin=-1.0, vmax=1.0)
     
     main()
