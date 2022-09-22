@@ -260,7 +260,7 @@ if __name__ == '__main__':
 
     # start cluster
     print(ColorText('\nStarting engines ...').bold().custom('gold'))
-    lview, dview, cluster_id = start_engines(n=10)
+    lview, dview, cluster_id = start_engines(n=10, profile=f'GF_{seed}')
 
     # load objects to cluster
     dview['rscript_exe'] = rscript_exe

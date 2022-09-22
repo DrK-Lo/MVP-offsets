@@ -217,6 +217,6 @@ if __name__ == "__main__":
 
     # start cluster
     print(ColorText('\nStarting engines ...').bold().custom('gold'))
-    lview, dview, cluster_id = start_engines(n=int(num_engines))
+    lview, dview, cluster_id = start_engines(n=int(num_engines), profile=f'fst_{seed}')
 
     main()

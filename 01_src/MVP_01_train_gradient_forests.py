@@ -162,9 +162,6 @@ def get_012(subset, muts):
 
     # do my maf calculations match those from Katie?
     muts_full = muts[['a_freq_subset', 'mutname']].copy()
-#     muts_full = pd.read_table(op.join(slimdir, f'{seed}_Rout_muts_full.txt'),
-#                               usecols=['a_freq_subset', 'mutname'],
-#                               delim_whitespace=True)
     mut_maf = muts_full['a_freq_subset'].apply(lambda freq: freq if freq <=0.5 else 1-freq)  # convert to maf
     mut_maf = pd.Series(dict(zip(muts_full['mutname'], mut_maf)))
     try:
@@ -201,7 +198,7 @@ def pop_freq(df):
 
 
 def create_pop_freqs(subset, z12file):
-    """Create population-level derived allele frequencies frequencies."""
+    """Create population-level derived allele frequencies."""
     print(ColorText('\nCreating population-level derived allele frequencies ...').bold().custom('gold'))
     
     # assign samps to pop
@@ -246,6 +243,7 @@ def create_pop_freqs(subset, z12file):
 
 
 def create_rangefiles(subset, samppop):
+    """Create range-wide data (for MVP, effectively the same as envdata)."""
     print(ColorText('\nCreating range files ...').bold().custom('gold'))
 
     # INDIVIDUAL-LEVEL DATA
@@ -275,6 +273,7 @@ def create_rangefiles(subset, samppop):
 
 
 def create_envfiles(rangedata, pool_rangedata):
+    """Create files for environmental data for Gradient Forests training."""
     print(ColorText('\nCreating envdata files ...').bold().custom('gold'))
     
     # INDIVIDUAL-LEVEL DATA
@@ -354,9 +353,9 @@ def create_training_shfiles():
     print(ColorText('Creating slurm sbatch files ...').bold().custom('gold'))
 
     mytime = {
-        'ind': {'all': '5-00:00:00',
+        'ind': {'all': '2-00:00:00',
                 'adaptive': '1:00:00',
-                'neutral' : '5-00:00:00'},
+                'neutral' : '2-00:00:00'},
         
         'pooled': {'all': '23:00:00',
                    'adaptive': '1:00:00',
@@ -446,10 +445,10 @@ def submit_jobs(shfiles):
     create_watcherfile(pids,
                        fitting_shdir,
                        watcher_name=f'{seed}_gf_fitting',
-                       time='12:00:00',
+                       time='1-00:00:00',
                        ntasks=1,
                        rem_flags=['#SBATCH --nodes=1', '#SBATCH --cpus-per-task=7'],
-                       mem='220000M',
+                       mem='300000M',
                        begin_alert=False,
                        added_text=shtext)
     
@@ -513,7 +512,7 @@ if __name__ == '__main__':
 
     # start cluster
     print(ColorText('\nStarting engines ...').bold().custom('gold'))
-    lview, dview, cluster_id = start_engines(n=int(num_engines))
+    lview, dview, cluster_id = start_engines(n=int(num_engines), profile=f'GF_{seed}')
 
     # print versions of packages and environment
     print(ColorText('\nEnvironment info :').bold().custom('gold'))

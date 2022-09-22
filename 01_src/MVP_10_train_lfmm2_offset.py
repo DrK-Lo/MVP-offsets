@@ -32,12 +32,10 @@ from pythonimports import *
 import MVP_01_train_gradient_forests as mvp01
 
 
-def read_params_file(slimdir, seed):
+def read_params_file(slimdir):
     """Read in the file that contains all parameters for each seed."""
     # find the file
-    paramsfile = fs(slimdir, pattern='final_params', endswith='.txt')
-    assert len(paramsfile) == 1
-    paramsfile = paramsfile[0]
+    paramsfile = op.join(slimdir, '0b-final_params-20220428.txt')
 
     # read in the file, drop meaningless rows
     params = pd.read_table(paramsfile, delim_whitespace=True)
@@ -52,7 +50,7 @@ def read_params_file(slimdir, seed):
 def determine_adaptive_envs(slimdir, seed):
     """From the seed params file, determine if there is one or two adaptive environments."""
     
-    params = read_params_file(slimdir, seed)
+    params = read_params_file(slimdir)
     
     n_traits = params.loc[seed, 'N_traits']
     
@@ -80,7 +78,7 @@ def make_lfmm_dirs(outerdir):
         print(ColorText('\nCreating lfmm directories ...').bold().custom('gold'))
 
     indir = makedir(op.join(outerdir, 'lfmm2/lfmm_infiles'))
-    outdir = makedir(op.join(outerdir, f'lfmm2/{seed}/lfmm_outfiles'))
+    outdir = makedir(op.join(outerdir, f'lfmm2/lfmm_outfiles/{seed}'))
     shdir = makedir(op.join(outerdir, 'lfmm2/lfmm_shfiles'))
 
     return indir, outdir, shdir
@@ -315,6 +313,10 @@ def create_shfiles(lfmm_envfiles, poplabel_file, garden_files, locus_files, thre
                     with open(cmd_file, 'w') as o:
                         o.write('\n'.join(cmds))
 
+                    # where to write sh text
+                    shfile = op.join(shdir, f'{job}.sh')
+
+                    # what text to write to sh
                     text = f'''#!/bin/bash
 #SBATCH --job-name={job}
 #SBATCH --time=01:00:00
@@ -331,11 +333,16 @@ module load parallel
 
 conda activate MVP_env_R4.0.3
 
+# train lfmm2 and calculate offset
 cat {cmd_file} | parallel -j {len(cmds)} --progress --eta
+
+conda activate mvp_env
+
+# re run any failed jobs from the cmd_file
+python MVP_watch_for_failure_of_train_lfmm2_offset.py {shfile} {outerdir} {len(cmds)}
 
 '''
                     # write slurm script to file
-                    shfile = op.join(shdir, f'{job}.sh')
                     with open(shfile, 'w') as o:
                         o.write(text)
                     shfiles.append(shfile)
@@ -345,46 +352,46 @@ cat {cmd_file} | parallel -j {len(cmds)} --progress --eta
     return shfiles
 
 
-def watch_for_failures(shfiles, num_engines=34):
-    """Sometimes jobs can fail, and not all parallel jobs complete. Add dependency to check each job."""
-    print(ColorText('\nSending sbatch scripts to slurm ...').bold().custom('gold'))
+# def watch_for_failures(shfiles, num_engines=34):
+#     """Sometimes jobs can fail, and not all parallel jobs complete. Add dependency to check each job."""
+#     print(ColorText('\nSending sbatch scripts to slurm ...').bold().custom('gold'))
     
-    watcher_pids = []
-    for shfile in pbar(shfiles, desc='sbatching'):
-        pid = sbatch(shfile, progress_bar=False)[0]
+#     watcher_pids = []
+#     for shfile in pbar(shfiles, desc='sbatching'):
+#         pid = sbatch(shfile, progress_bar=False)[0]
         
-        watcher_shfile = shfile.replace('.sh', '_watcher.sh')
-        basename = op.basename(watcher_shfile).replace('.sh', '')
+#         watcher_shfile = shfile.replace('.sh', '_watcher.sh')
+#         basename = op.basename(watcher_shfile).replace('.sh', '')
         
-        shtext = f"""#!/bin/bash
-#SBATCH --job-name={basename}
-#SBATCH --time=1:00:00
-#SBATCH --mem=165000M
-#SBATCH --partition=short
-#SBATCH --nodes=1
-#SBATCH --cpus-per-task={num_engines}
-#SBATCH --output={basename}_%j.out
-#SBATCH --mail-user={email}
-#SBATCH --mail-type=FAIL
-#SBATCH --dependency=afternotok:{pid}
+#         shtext = f"""#!/bin/bash
+# #SBATCH --job-name={basename}
+# #SBATCH --time=1:00:00
+# #SBATCH --mem=165000M
+# #SBATCH --partition=short
+# #SBATCH --nodes=1
+# #SBATCH --cpus-per-task={num_engines}
+# #SBATCH --output={basename}_%j.out
+# #SBATCH --mail-user={email}
+# #SBATCH --mail-type=FAIL
+# #SBATCH --dependency=afternotok:{pid}
 
-source $HOME/.bashrc
+# source $HOME/.bashrc
 
-conda activate mvp_env
+# conda activate mvp_env
 
-cd {mvp_dir}
+# cd {mvp_dir}
 
-python MVP_watch_for_failure_of_train_lfmm2_offset.py {shfile} {outerdir} {num_engines}
+# python MVP_watch_for_failure_of_train_lfmm2_offset.py {shfile} {outerdir} {num_engines}
 
-"""
+# """
         
-        with open(watcher_shfile, 'w') as o:
-            o.write(shtext)
+#         with open(watcher_shfile, 'w') as o:
+#             o.write(shtext)
             
-        watcher_pid = sbatch(watcher_shfile, progress_bar=False)
-        watcher_pids.extend(watcher_pid)
+#         watcher_pid = sbatch(watcher_shfile, progress_bar=False)
+#         watcher_pids.extend(watcher_pid)
     
-    return watcher_pids
+#     return watcher_pids
 
 
 def kickoff_validation(pids):
@@ -443,11 +450,11 @@ def main():
     shfiles = create_shfiles(lfmm_envfiles, poplabel_file, garden_files, locus_files)
 
     # submit jobs to slurm
-    watcher_pids = watch_for_failures(shfiles)
+#     watcher_pids = watch_for_failures(shfiles)
+    pids = sbatch(shfiles)
 
     # create a watcher file for kicking off validation
-    kickoff_validation(watcher_pids)
-#     create_watcherfile(pids, shdir, watcher_name=f'{seed}_lfmm_offset_watcher', email=email)
+    kickoff_validation(pids)
     
     print(ColorText(f'\ntime to complete: {formatclock(dt.now() - t1, exact=True)}'))
     print(ColorText('\nDONE!!').bold().green(), '\n')

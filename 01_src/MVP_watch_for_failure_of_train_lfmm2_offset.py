@@ -78,7 +78,7 @@ def run_jobs(needed_cmds, condadir, lview, dview):
 
 
 def main(iteration=0):
-    print(ColorText(f'\nStarting main program: {iteration = }').bold().custom('gold'))
+    print(ColorText(f'\nLooking for failed jobs: {iteration = }').bold().custom('gold'))
     
     # get commands from batch file
     cmds = get_cmds()
@@ -107,8 +107,17 @@ def main(iteration=0):
 if __name__ == '__main__':
     thisfile, shfile, outerdir, num_engines = sys.argv
     
+    print(
+        ColorText(
+            f'\nStarting {op.basename(thisfile)} ...'
+        ).bold().custom('gold')
+    )
+    
     # start cluster
-    lview, dview, cluster_id = start_engines(n=int(num_engines))
+    lview, dview, cluster_id = start_engines(n=int(num_engines), profile=f'lfmm2_{seed}')
+    
+    # timer
+    t1 = dt.now()
     
     # print versions of packages and environment
     print(ColorText('\nEnvironment info :').bold().custom('gold'))

@@ -66,6 +66,7 @@ def train(freqs):
 
 
 def calculate_linear_models(seed):
+    """Regress environment and allele frequencies, store slope, intercept, and pvalue."""
     print(ColorText('\nCalculating linear models for each locus for each env ...').bold().custom('gold'))
     # get population-level allele frequencies for the derived allele
     freqfile = op.join(rona_training_dir, f'{seed}_Rout_Gmat_sample_maf-gt-p01_RONAready_pooled_all.txt')
@@ -156,6 +157,7 @@ def get_rona_elements(freqs):
 
 
 def scatter_rona_elements(freqfile):
+    """Parallelize calculation of RONA by determinging typical summation for each locus before summing."""
     print(
         ColorText(
             '\nCalculating locus elements of RONA for loci with significant linear models ...'
@@ -291,6 +293,6 @@ if __name__ == '__main__':
 
     # start cluster
     print(ColorText('\nStarting engines ...').bold().custom('gold'))
-    lview, dview, cluster_id = start_engines(n=int(num_engines))
+    lview, dview, cluster_id = start_engines(n=int(num_engines), profile=f'RONA_{seed}')
 
     main()
