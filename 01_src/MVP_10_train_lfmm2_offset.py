@@ -321,6 +321,7 @@ def create_shfiles(lfmm_envfiles, poplabel_file, garden_files, locus_files, thre
 #SBATCH --job-name={job}
 #SBATCH --time=01:00:00
 #SBATCH --mem={mem}
+#SBATCH --partition=lotterhos
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task={len(cmds)}
 #SBATCH --output={job}_%j.out
@@ -338,8 +339,10 @@ cat {cmd_file} | parallel -j {len(cmds)} --progress --eta
 
 conda activate mvp_env
 
+cd {mvp_dir}
+
 # re run any failed jobs from the cmd_file
-python MVP_watch_for_failure_of_train_lfmm2_offset.py {shfile} {outerdir} {len(cmds)}
+python MVP_watch_for_failure_of_train_lfmm2_offset.py {seed} {shfile} {outerdir} {len(cmds)}
 
 '''
                     # write slurm script to file
@@ -401,9 +404,8 @@ def kickoff_validation(pids):
 #SBATCH --job-name={basename}
 #SBATCH --time=3:00:00
 #SBATCH --mem=4000
-#SBATCH --partition=short
+#SBATCH --partition=lotterhos
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=56
 #SBATCH --output={basename}_%j.out
 #SBATCH --mail-user={email}
 #SBATCH --mail-type=FAIL
