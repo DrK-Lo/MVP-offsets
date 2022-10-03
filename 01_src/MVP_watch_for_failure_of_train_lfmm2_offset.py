@@ -105,7 +105,7 @@ def main(iteration=0):
 
 
 if __name__ == '__main__':
-    thisfile, shfile, outerdir, num_engines = sys.argv
+    thisfile, seed, shfile, outerdir, num_engines = sys.argv
     
     print(
         ColorText(
