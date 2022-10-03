@@ -184,7 +184,7 @@ def run_fit_gradient_forests(garden_files):
 
     # get the RDS output from training
     predfiles = fs(training_outdir, pattern=f'{seed}_', endswith='predOut.RDS')
-    assert len(predfiles) == 6  # ind_all ind_adaptive ind_neural, pooled_all pooled_adaptive, pooled_neutral
+    assert len(predfiles) == 6, print(len(predfiles), predfiles)  # ind_all ind_adaptive ind_neural, pooled_all pooled_adaptive, pooled_neutral
 
     # run parallelization
     jobs = []
