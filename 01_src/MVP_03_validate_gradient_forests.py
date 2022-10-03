@@ -429,73 +429,28 @@ def create_scatter_plots(offset_dfs, fitness_mat, locations, envdata, samppop, p
                                                                      norm=norm).to_dict()
 
                 if ind_or_pooled == 'ind':
-                    colors = {'garden' : indcolors,
-                              'source' : gardencolors}
+                    color_dict = {'garden' : indcolors,
+                                  'source' : gardencolors}
                 else:
-                    colors = {'garden' : gardencolors,
-                              'source' : gardencolors}
+                    color_dict = {'garden' : gardencolors,
+                                  'source' : gardencolors}
                 
                 for garden_or_source in ['garden', 'source']:
-                    cols = colors[garden_or_source].copy()
+                    colors = color_dict[garden_or_source].copy()
                     
 
                     # plot performance within gardens across source populations
                     mvp06.performance_scatter(offset.copy(),
                                               fitness.copy(),
-                                              f'{ind_or_pooled} {label_dict[marker_set]} {env}',
+                                              f'{ind_or_pooled} {label_dict[marker_set]}',
                                               locations,
-                                              env_series,
-                                              cols,
-                                              popsamps,
+                                              colors,
                                               pdf,
-                                              norm=norm, cmap=cmap, seed=seed, fig_dir=fig_dir, program='GF',
+                                              popsamps=popsamps, norm=norm, cmap=cmap, seed=seed, fig_dir=fig_dir,
+                                              home_env=env,
+                                              program='GF',
                                               garden_or_source=garden_or_source,
                                               ind_or_pooled=ind_or_pooled)
-                    
-
-#                 # determine colors for scatter plot
-#                 if ind_or_pooled == 'ind':
-#                     cols = fitness.columns.map(samppop).map(env_series).to_series().apply(mvp06.color,
-#                                                                                          cmap=cmap,
-#                                                                                          norm=norm)
-#                 else:
-#                     cols = fitness.index.map(env_series).to_series().apply(mvp06.color,
-#                                                                             cmap=cmap,
-#                                                                             norm=norm)
-
-#                 # plot performance within gardens across source populations
-#                 mvp06.performance_scatter(offset.copy(),
-#                                           fitness.copy(),
-#                                           f'{ind_or_pooled} {label_dict[marker_set]} {env}',
-#                                           locations,
-#                                           env_series,
-#                                           cols,
-#                                           popsamps,
-#                                           pdf,
-#                                           norm=norm, cmap=cmap, seed=seed, fig_dir=fig_dir, program='GF',
-#                                           garden_or_source='garden', ind_or_pooled=ind_or_pooled)
-
-#                 # determine colors for scatter plot (key = pop, val = RGB color tuple)
-#                 if ind_or_pooled == 'ind':
-#                     cols = fitness.index.map(env_series).to_series(index=fitness.index).apply(mvp06.color,
-#                                                                                               cmap=cmap,
-#                                                                                               norm=norm).to_dict()
-#                 else:
-#                     cols = fitness.columns.map(samppop).map(env_series).to_series(index=fitness.columns).apply(mvp06.color,
-#                                                                                                                 cmap=cmap,
-#                                                                                                                 norm=norm).to_dict()
-
-#                 # plot performance across gardens within source populations
-#                 mvp06.performance_scatter(offset.copy(),
-#                                           fitness.copy(),
-#                                           f'{ind_or_pooled} {label_dict[marker_set]} {env}',
-#                                           locations,
-#                                           env_series,
-#                                           cols,
-#                                           popsamps,
-#                                           pdf,
-#                                           norm=norm, cmap=cmap, seed=seed, fig_dir=fig_dir, program='GF',
-#                                           garden_or_source='source', ind_or_pooled=ind_or_pooled)
 
     pass
 
