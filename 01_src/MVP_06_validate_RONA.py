@@ -60,7 +60,10 @@ def calculate_performance(fitness, marker_sets=['all', 'adaptive', 'neutral']):
             # format rona predictions in the same format as fitness dataframe
                 # pd.DataFrame(rona[env]).T is necessary so that source deme is col and garden is row
 #             rona_offset = pd.DataFrame(rona_dict).T
-            offset_dfs[marker_set][env] = pd.DataFrame(rona_dict).T
+            rona_offset = pd.DataFrame(rona_dict).T
+            rona_offset.columns = rona_offset.columns.astype(str)
+            rona_offset.index = rona_offset.index.astype(int)
+            offset_dfs[marker_set][env] = rona_offset.copy()
             
             # correlation of fitness and offset within gardens across transplants
             garden_performance[marker_set][env] = offset_dfs[marker_set][env].corrwith(
@@ -85,13 +88,11 @@ def calculate_performance(fitness, marker_sets=['all', 'adaptive', 'neutral']):
 
             # slope of fitness ~ offset across gardens
             for source_pop in pbar(fitness.columns, desc=f'{marker_set} {env} population performance'):
-                # retrieve rona for this pop
-                ronadata = pd.Series(dtype=float)
-                for garden in fitness.index:  # ensures same order between ronadata and fitness[source_pop]
-                    ronadata.loc[garden] = rona_dict[garden][source_pop]
-
                 # record slope
-                source_slopes[marker_set][env].loc[source_pop] = linregress(ronadata, fitness[source_pop]).slope
+                source_slopes[marker_set][env].loc[source_pop] = linregress(
+                    offset_dfs[marker_set][env][source_pop].loc[fitness.index],
+                    fitness[source_pop]
+                ).slope
                 
     performance_dicts = {'garden_performance' : garden_performance,
                          'source_performance' : source_performance,
@@ -101,12 +102,12 @@ def calculate_performance(fitness, marker_sets=['all', 'adaptive', 'neutral']):
     # save performance dicts
     pkl = op.join(corr_dir, f'{seed}_performance_dicts.pkl')
     pkldump(performance_dicts, pkl)
-    print(f'\twrote performance_dicts to : {pkl}')
+    print(f'\n\twrote performance_dicts to : {pkl}')
     
     # save offsets
     pkl = op.join(offset_dir, f'{seed}_offset_dfs.pkl')
     pkldump(offset_dfs, pkl)
-    print(f'\n\twrote offset_dfs to : {pkl}')
+    print(f'\twrote offset_dfs to : {pkl}')
 
     return performance_dicts, offset_dfs
 
@@ -275,12 +276,6 @@ def create_heatmap_subplots(performance_dict, performance_name, pdf, samppop, lo
 
             corrs = performance_dict[marker_set][env].copy()
 
-#             if ind_or_pooled == 'ind' and performance_name != 'garden_performance':
-#                 # average across individuals for each population
-#                 ind_corrs = pd.DataFrame(corrs, columns=['performance'])
-#                 ind_corrs['subpopID'] = ind_corrs.index.map(samppop)
-#                 corrs = ind_corrs.groupby('subpopID')['performance'].apply(np.mean)
-
             # fill in heatmap
             df = mvp03.blank_dataframe()
             for garden, corr in corrs.items():
@@ -379,7 +374,7 @@ def create_slope_heatmap_subplots(performance_name, slope_dict, locations, pdf, 
         # get slopes and fill in the heatmap
         heatmap = mvp03.blank_dataframe()
         for garden, slope in garden_slopes.items():
-            x, y = locations.loc[garden]
+            x, y = locations.loc[int(garden)]
             heatmap.loc[y, x] = slope
         heatmaps[marker_set][env] = heatmap.copy()
         
@@ -431,8 +426,8 @@ def fig_setup(locations):
 
 
 def performance_scatter(
-    offset, fitness, env, locations, envdata, cols, popsamps, pdf, cmap=None, norm=None, seed=None, fig_dir=None,
-    program='RONA', home_env=None, garden_or_source='garden', ind_or_pooled=None
+    offset, fitness, figlabel, locations, colors, pdf, popsamps=None, cmap=None, norm=None, seed=None, fig_dir=None,
+    program='RONA', home_env=None, rona_env='', garden_or_source='garden', ind_or_pooled='pooled'
 ):
     """Create a map of pops using coords, show relationsip between RONA and fitness."""
     figpos, fig, axes = fig_setup(locations)
@@ -443,19 +438,20 @@ def performance_scatter(
         if garden_or_source == 'garden':
             ax.scatter(offset.loc[garden, fitness.columns],
                        fitness.loc[garden],
-                       c=fitness.columns.astype(int).map(cols))
+                       c=fitness.columns.astype(int).map(colors))
         else:
             if ind_or_pooled == 'ind':
                 for samp in popsamps[garden]:
                     ax.scatter(offset.loc[fitness.index, samp],
                                fitness[samp],
-                               color=cols[garden]
+                               color=colors[garden]
                               )
             else:
-                assert ind_or_pooled is not None
+                assert ind_or_pooled == 'pooled'
                 ax.scatter(offset.loc[fitness.index, str(garden)],
                            fitness[str(garden)],
-                           c=fitness.index.map(cols))
+                           c=[colors[garden] for pop in fitness.index])  # only color home garden the same color
+
         # decide if I need to label longitude (x) or latitude (y) axes
         x, y = locations.loc[garden]  
         if subplot in range(0, 110, 10):
@@ -468,23 +464,24 @@ def performance_scatter(
                 label.set_rotation_mode('anchor')
             ax.set_xlabel(int(x))
 
-    # determine color bar label
-    if program == 'RONA':
-        assert home_env is not None
-        env_label = home_env
-    else:
-        env_label = env
-            
     # set colorbar
     sm = ScalarMappable(norm=norm, cmap=cmap)
     sm.set_array([])
     cbar = fig.colorbar(sm, ax=axes[:,:])
-    cbar.ax.set_title(label_dict[env_label.split()[-1]])
+    cbar.ax.set_title(label_dict[home_env])
+
+    # is this RONA?
+    if rona_env != '':
+        rona_env = f' associated to {rona_env}'
     
     # set labels
     fig.supylabel('fitness', x=0.08, ha='center', va='center', fontsize=14, weight='bold')
     fig.supxlabel('predicted offset', x=0.431, y=0.045, ha='center', va='center', fontsize=14, weight='bold')
-    fig.suptitle(f'{seed}\n{program} {garden_or_source} performance for {env}\ntransplanted pops colored by home environment\n{level}')
+    fig.suptitle(
+        f'{seed}\n' +\
+        f'{program} {garden_or_source} performance for {label}{rona_env}\n' +\
+        f'transplanted pops colored by home environment\n{level}'
+    )
 
     # save
     if fig_dir is not None:
@@ -512,32 +509,24 @@ def scatter_wrapper(offset_dfs, fitness, envdata, locations, pdf, marker_sets=['
             for rona_env in ['sal_opt', 'temp_opt']:  # the environment used to calculate RONA
                 offset = offset_dfs[marker_set][rona_env]  # already transposed properly
                 
-                # color for the environment (temp_opt) of source_pop
+                # determine colors for scatter plot
                 colormap = 'Reds' if home_env=='temp_opt' else 'Blues_r'
                 cmap = plt.cm.get_cmap(colormap)
-                cols = offset.columns.map(envdata[home_env]).to_series().apply(color, cmap=cmap, norm=norm).tolist()
-
-                # plot performance within gardens across source populations
-                performance_scatter(offset.copy(),
-                                    fitness.copy(),
-                                    f'{label_dict[marker_set]} {rona_env}',
-                                    locations,
-                                    envdata,
-                                    cols,
-                                    pdf,
-                                    norm=norm, cmap=cmap, seed=seed, fig_dir=fig_dir, home_env=home_env,
-                                    garden_or_source='garden')
+                colors = fitness.index.map(envdata[home_env]).to_series(index=fitness.index).apply(color,
+                                                                                                   cmap=cmap,
+                                                                                                   norm=norm).to_dict()
                 
-                # plot performance across gardens within source populations
-                performance_scatter(offset.T.copy(),
-                                    fitness.T.copy(),
-                                    f'{label_dict[marker_set]} {rona_env}',
-                                    locations,
-                                    envdata,
-                                    cols,
-                                    pdf,
-                                    norm=norm, cmap=cmap, seed=seed, fig_dir=fig_dir, home_env=home_env,
-                                    garden_or_source='source')
+                for garden_or_source in ['garden', 'source']:
+                    # plot performance within gardens across source populations
+                    performance_scatter(offset.copy(),
+                                        fitness.copy(),
+                                        f'{label_dict[marker_set]}',
+                                        locations,
+                                        colors,
+                                        pdf,
+                                        norm=norm, cmap=cmap, seed=seed, fig_dir=fig_dir,
+                                        rona_env=rona_env, home_env=home_env,
+                                        garden_or_source=garden_or_source)        
 
     pass
 
