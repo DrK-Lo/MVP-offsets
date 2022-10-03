@@ -56,8 +56,6 @@
 
 library(data.table)
 library(progress)
-# library(robust)  # needed for rdadapt function
-# library(qvalue)  # needed for rdadapt function - installed with BiocManager
 library(LEA)  # needed to load in previous PCAs
 library(vegan)
 
@@ -584,30 +582,6 @@ estimate_garden_offsets = function(subset, outlier_rda, env_pres, ntraits=2, num
         # add offset out to list
         offset_lists[[len(offset_lists) + 1]] = offset_list
         names(offset_lists)[len(offset_lists)] = garden_num
-
-#         # save
-#         rda_dir = paste0(outerdir, '/rda/offset_outfiles')
-#         if (!dir.exists(rda_dir)){
-#             dir.create(rda_dir, recursive=TRUE)
-#         }
-
-#         basename = sprintf("%s_%s_%s_%s_ntraits-%s",
-#                            seed,
-#                            garden_num,
-#                            ind_or_pooled,
-#                            use_RDA_outliers,
-#                            ntraits)
-
-#         offset_file = paste0(
-#             rda_dir, sprintf("/%s_rda_offset.txt", basename)
-#         )
-#         write.table(offset, offset_file, row.names=TRUE, col.names=TRUE)
-
-#         list_file = paste0(
-#             rda_dir,
-#             sprintf("/%s_rda_list.RDS", basename)
-#         )
-#         saveRDS(offset_list, list_file)
 
         # update progress bar
         prog_bar$tick(1)

@@ -64,7 +64,7 @@ The directory under which all anaconda envs are stored.""")
                         action='store_true',
                         dest="run_gf",
                         help='''Boolean: true if used, false otherwise.
-Whether to run Risk Of Non-Adaptedness analysis.''')
+Whether to run Gradient Forests analysis.''')
     
     parser.add_argument("--rona",
                         required=False,
@@ -78,7 +78,7 @@ Whether to run Risk Of Non-Adaptedness analysis.''')
                         action='store_true',
                         dest='run_gdm',
                         help='''Boolean: true if used, false otherwise.
-Whether to run Gradient Dissimilarity models.''')
+Whether to run Generalized Dissimilarity Models.''')
 
     parser.add_argument("--lfmm",
                         required=False,
@@ -150,11 +150,11 @@ def execute_gf(seeds, args):
     shdir = makedir(op.join(args.outdir, 'gradient_forests/training/training_shfiles/kickoff_shfiles'))
     
     shfiles = {}
-    for seed in seeds:
+    for seed in pbar(seeds):
         basename = f'{seed}_gf_training'
         shtext = f"""#!/bin/bash
 #SBATCH --job-name={basename}
-#SBATCH --time=3:00:00
+#SBATCH --time=00:10:00
 #SBATCH --mem=4000
 #SBATCH --partition=short
 #SBATCH --nodes=1
@@ -180,7 +180,7 @@ python MVP_01_train_gradient_forests.py {seed} {args.slimdir} {args.outdir} 56 {
     
     pids = {}
     for seed, sh in shfiles.items():
-        pids[seed] = sbatch(sh)[0]
+        pids[seed] = sbatch(sh, progress_bar=False)[0]
         
     return pids
 
@@ -198,7 +198,7 @@ def execute_rona(seeds, args, gf_pids=None):
         dependency_text = '' if gf_pids is None else f'#SBATCH --dependency=afterok:{gf_pids[seed]}'
         shtext = f"""#!/bin/bash
 #SBATCH --job-name={basename}
-#SBATCH --time=3:00:00
+#SBATCH --time=01:00:00
 #SBATCH --mem=4000
 #SBATCH --partition=short
 #SBATCH --nodes=1
@@ -247,8 +247,8 @@ def execute_lfmm(seeds, args):
         
         shtext = f"""#!/bin/bash
 #SBATCH --job-name={basename}
-#SBATCH --time=3:00:00
-#SBATCH --mem=4000
+#SBATCH --time=00:05:00
+#SBATCH --mem=500
 #SBATCH --partition=short
 #SBATCH --output={basename}_%j.out
 #SBATCH --mail-user={args.email}
@@ -339,7 +339,7 @@ def execute_rda(seeds, args, gf_pids=None):
         
         # files created by Katie
         rda_files = fs(args.slimdir, startswith=f'{seed}_RDA', endswith='.RDS')
-        assert len(rda_files) == 2  # structure-corrected and -uncorrected
+        assert len(rda_files) == 2, len(rda_files)  # structure-corrected and -uncorrected
         
         # the files that will be created by MVP_pooled_pca_and_rda.R
         rda_files.extend([
@@ -363,7 +363,7 @@ def execute_rda(seeds, args, gf_pids=None):
 #SBATCH --job-name={basename}
 #SBATCH --time=1:00:00
 #SBATCH --mem=9000
-#SBATCH --partition=short
+#SBATCH --partition=lotterhos
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task={len(cmds)}
 #SBATCH --output={basename}_%j.out
@@ -411,7 +411,10 @@ def main():
     
     # get a list of simluations (identified by their seed number)
     seeds = get_seeds(args.slimdir)
-                        
+
+    # create cluster profiles for each seed
+
+    # which offsets to run?
     if args.run_all is True:
         args.run_gf = True
         args.run_rona = True

@@ -184,7 +184,7 @@ def run_fit_gradient_forests(garden_files):
 
     # get the RDS output from training
     predfiles = fs(training_outdir, pattern=f'{seed}_', endswith='predOut.RDS')
-    assert len(predfiles) == 6  # ind_all ind_adaptive ind_neural, pooled_all pooled_adaptive, pooled_neutral
+    assert len(predfiles) == 6, print(len(predfiles), predfiles)  # ind_all ind_adaptive ind_neural, pooled_all pooled_adaptive, pooled_neutral
 
     # run parallelization
     jobs = []
@@ -260,7 +260,7 @@ if __name__ == '__main__':
 
     # start cluster
     print(ColorText('\nStarting engines ...').bold().custom('gold'))
-    lview, dview, cluster_id = start_engines(n=10)
+    lview, dview, cluster_id = start_engines(n=10, profile=f'GF_{seed}')
 
     # load objects to cluster
     dview['rscript_exe'] = rscript_exe

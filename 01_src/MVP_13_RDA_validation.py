@@ -157,12 +157,11 @@ def color_histogram(ax, cmap, norm):
     pass
 
 
-def decorate_figure(marker_sets, fig, axes, title=None, cmap='viridis', vmin=-1, vmax=1, program='RDA'):
+def decorate_figure(marker_sets, fig, axes, title=None, cmap='viridis', vmin=-1, vmax=1, xadjust=0.39,
+                    cbar_label="Kendall's $\\tau$", program='RDA'):
     """For histo_subplots and heatmap_subplots, add main figure title, labels for rows (`marker_sets`) columns."""
     # set marker_set label - need to do after filling in all ax's so that ylim is constant
     from matplotlib.lines import Line2D
-    
-    xadjust = 0.39 if program == 'RDA' else 0.20
         
     # set main title
     fig.suptitle(title,
@@ -177,7 +176,7 @@ def decorate_figure(marker_sets, fig, axes, title=None, cmap='viridis', vmin=-1,
     cbar = fig.colorbar(sm,
                         ax=axes[:,:] if program=='RDA' else axes[:],
                         cax=cbar_ax)
-    cbar.set_label("Kendall's $\\tau$", fontdict=dict(fontsize=15))
+    cbar.set_label(cbar_label, fontdict=dict(fontsize=15))
 
     # make it pretty
     fig.tight_layout()
@@ -238,7 +237,7 @@ def decorate_figure(marker_sets, fig, axes, title=None, cmap='viridis', vmin=-1,
 
 
 def create_histo_subplots(performance_dict, performance_name, pdf, cmap='viridis', N=5,
-                          marker_sets=['TRUE', 'FALSE', 'CAUSAL', 'NEUTRAL'],
+                          marker_sets=['FALSE', 'CAUSAL', 'NEUTRAL', 'TRUE'],
                           histplot_kws={}, boxplot_kws={}):
     """Create a panel of myfigs.histo_box plots for performance of either garden or source (within `performance_dict`).
     
@@ -306,9 +305,7 @@ def create_histo_subplots(performance_dict, performance_name, pdf, cmap='viridis
             for which_traits in total_traits:
                 for structcorr in ['nocorr', 'structcorr']:
                     ax = row_axes[col]
-                    
-#                     sns.histplot(performance_dict[ind_or_pooled][marker_set][which_traits][structcorr],
-#                                  bins=15, ax=ax, edgecolor='white')
+
                     # create the histo_boxplot
                     ax_box, ax_hist = histo_box(
                         performance_dict[ind_or_pooled][marker_set][which_traits][structcorr].copy(),
@@ -336,8 +333,8 @@ def create_histo_subplots(performance_dict, performance_name, pdf, cmap='viridis
                     col += 1
         
         # add labels, title, etc
-        decorate_figure(marker_sets, fig, axes,
-                        title=f'{performance_name}\n{seed = }\n{ind_or_pooled = }\n{level}\n', vmin=-1, vmax=1, program='RDA')
+        decorate_figure(marker_sets, fig, axes, vmin=-1, vmax=1, program='RDA',
+                        title=f'{performance_name}\n{seed = }\n{ind_or_pooled = }\n{level}\n')
         
         # save
         pdf.savefig(bbox_inches="tight")
@@ -362,7 +359,7 @@ def get_vmin_vmax(performance_dict):
 
 
 def create_heatmap_subplots(performance_dict, performance_name, pdf, samppop, locations,
-                            cmap='viridis', use_vmin_vmax=True, marker_sets=['TRUE', 'FALSE', 'CAUSAL', 'NEUTRAL']):
+                            cmap='viridis', use_vmin_vmax=True, marker_sets=['FALSE', 'CAUSAL', 'NEUTRAL', 'TRUE']):
     """Create a panel of heatmaps for performance of either garden or source (within `performance_dict`).
     
     Parameters
@@ -455,9 +452,8 @@ def create_heatmap_subplots(performance_dict, performance_name, pdf, samppop, lo
                     col += 1
         
         # add labels, title, etc
-        decorate_figure(marker_sets, fig, axes,
-                        title=f'{performance_name}\n{seed = }\n{ind_or_pooled = }\n{level}\n', vmin=vmin, vmax=vmax, 
-                        program='RDA')
+        decorate_figure(marker_sets, fig, axes, title=f'{performance_name}\n{seed = }\n{ind_or_pooled = }\n{level}\n',
+                        vmin=vmin, vmax=vmax, program='RDA')
         
         # save fig
         pdf.savefig(bbox_inches="tight")
@@ -484,7 +480,6 @@ def fill_slope_heatmaps(marker_sets, heatmaps, vmin, vmax, total_traits=['sal_op
     # fill in subplots with histograms
     for row, marker_set in enumerate(marker_sets):
         row_axes = axes[row]
-
 
         col = 0  # column counter
         for which_traits in total_traits:
@@ -524,8 +519,9 @@ def fill_slope_heatmaps(marker_sets, heatmaps, vmin, vmax, total_traits=['sal_op
 
 
 def create_slope_heatmap_subplots(performance_name, slope_dict, locations, pdf,
-                                  marker_sets=['TRUE', 'FALSE', 'CAUSAL', 'NEUTRAL'], 
+                                  marker_sets=['FALSE', 'CAUSAL', 'NEUTRAL', 'TRUE'], 
                                   total_traits=['sal_opt', 'temp_opt']):
+    """Fill in heatmap subplots to display slope of relationship between fitness and offset."""
     print(ColorText(f'\nCreating slope heatmaps for {performance_name}').bold().custom('gold'))
     
     heatmaps = wrap_defaultdict(dict, 3)
@@ -554,7 +550,8 @@ def create_slope_heatmap_subplots(performance_name, slope_dict, locations, pdf,
         fig, axes = fill_slope_heatmaps(marker_sets, heatmaps[ind_or_pooled], vmin=vmin, vmax=vmax, total_traits=total_traits)
 
         decorate_figure(marker_sets, fig, axes, cmap='viridis', vmin=vmin, vmax=vmax,
-                              title=f'{performance_name} slope\n{seed = }\n{ind_or_pooled = }\n{level}\n')
+                        cbar_label='slope of fitness ~ RDA offset',
+                        title=f'{performance_name} slope\n{seed = }\n{ind_or_pooled = }\n{level}\n')
 
         # save figure
         pdf.savefig(bbox_inches="tight")
@@ -569,41 +566,58 @@ def create_slope_heatmap_subplots(performance_name, slope_dict, locations, pdf,
     pass
 
 
-def scatter_wrapper(offset_dfs, fitness_mat, envdata, locations, samppop, pdf, marker_sets=['all', 'adaptive', 'neutral'],
-                    total_traits=None):
-    """Wrapper for `garden_performance_scatter`."""
+def scatter_wrapper(offset_dfs, fitness_mat, envdata, locations, samppop, popsamps, pdf, total_traits=None):
+    """Wrapper for `mvp06.performance_scatter`."""
     print(ColorText('\nCreating scatter plots ...').bold().custom('gold'))
     for (ind_or_pooled, marker_set, which_traits, structcorr), offset in unwrap_dictionary(offset_dfs):
         fitness = fitness_mat[ind_or_pooled].copy()
         
-        for home_env in pbar(['sal_opt', 'temp_opt'], desc=marker_set):  # the environment to color populations
+        desc = f'{ind_or_pooled} {marker_set} {which_traits} {structcorr}'
+        for home_env in pbar(['sal_opt', 'temp_opt'], desc=desc):  # environment to color pops
 
             # color for the environment (temp_opt) of source_pop
             colormap = 'Reds' if home_env=='temp_opt' else 'Blues_r'
             cmap = plt.cm.get_cmap(colormap)
+            
+            # determine colors for scatter plot
             if ind_or_pooled == 'ind':
-                cols = offset.columns.map(samppop).map(envdata[home_env]).to_series().apply(mvp06.color,
-                                                                                     cmap=cmap,
-                                                                                     norm=norm)
-            else:
-                cols = offset.columns.map(envdata[home_env]).to_series().apply(mvp06.color,
-                                                                        cmap=cmap,
-                                                                        norm=norm)
+                indcolors = fitness.columns.map(samppop).map(
+                    envdata[home_env]).to_series(index=fitness.columns.astype(int)).apply(mvp06.color,
+                                                                                   cmap=cmap,
+                                                                                   norm=norm).to_dict()
+            gardencolors = fitness.index.map(
+                envdata[home_env]).to_series(index=fitness.index).apply(mvp06.color,
+                                                                 cmap=cmap,
+                                                                 norm=norm).to_dict()
 
-            mvp06.garden_performance_scatter(offset,
-                                             fitness,
-                                             f'{ind_or_pooled} {label_dict[marker_set]} {which_traits} {home_env}',
-                                             locations,
-                                             envdata,
-                                             cols,
-                                             pdf,
-                                             norm=norm, cmap=cmap, seed=seed, fig_dir=fig_dir
-                                            )
+            if ind_or_pooled == 'ind':
+                color_dict = {'garden' : indcolors,
+                          'source' : gardencolors}
+            else:
+                color_dict = {'garden' : gardencolors,
+                          'source' : gardencolors}
+
+            for garden_or_source in ['garden', 'source']:
+                colors = color_dict[garden_or_source].copy()
+
+
+                # plot performance within gardens across source populations
+                mvp06.performance_scatter(offset.copy(),
+                                          fitness.copy(),
+                                          f'{ind_or_pooled} {label_dict[marker_set]} {which_traits}',
+                                          locations,
+                                          colors,
+                                          pdf,
+                                          popsamps=popsamps, norm=norm, cmap=cmap, seed=seed, fig_dir=fig_dir,
+                                          home_env=home_env,
+                                          program='RDA',
+                                          garden_or_source=garden_or_source,
+                                          ind_or_pooled=ind_or_pooled)
 
     pass
 
 
-def fig_wrapper(performance_dicts, samppop, locations, offset_dfs, fitness_mat, envdata, fig_dir=None):
+def fig_wrapper(performance_dicts, samppop, popsamps, locations, offset_dfs, fitness_mat, envdata, fig_dir=None):
     """Wrapper for create_histo_subplots(), create_heatmap_subplots."""
     # how many envs were selective?
     total_traits = ['ntraits-1', 'ntraits-2'] if ntraits == 1 else ['ntraits-2']
@@ -630,25 +644,18 @@ def fig_wrapper(performance_dicts, samppop, locations, offset_dfs, fitness_mat, 
             create_heatmap_subplots(performance_dict, performance_name, pdf, samppop, locations)
 
             # garden performance slope of fitness ~ offset
-            if performance_name == 'garden_performance':
-                create_slope_heatmap_subplots(
-                    performance_name, performance_dicts['garden_slopes'].copy(), locations, pdf,
-                    total_traits=total_traits
-                )
-
-            # source performance slope of fitness ~ offset
-            if performance_name == 'source_performance':
-                create_slope_heatmap_subplots(
-                    performance_name, performance_dicts['source_slopes'].copy(), locations, pdf,
-                    total_traits=total_traits
-                )
+            slope_group = performance_name.split("_")[0]
+            create_slope_heatmap_subplots(
+                performance_name, performance_dicts[f'{slope_group}_slopes'].copy(), locations, pdf,
+                total_traits=total_traits
+            )
             
     print(ColorText(f'\nsaved fig to: {saveloc}').bold())
     
     # save scatterplots separately so computers don't get slow trying to display everything
     saveloc = op.join(fig_dir, f'{seed}_RDA_figures_scatter.pdf')
     with PdfPages(saveloc) as pdf:  # save all figures to one pdf
-        scatter_wrapper(offset_dfs, fitness_mat, envdata, locations, samppop, pdf, total_traits=total_traits)
+        scatter_wrapper(offset_dfs, fitness_mat, envdata, locations, samppop, popsamps, pdf, total_traits=total_traits)
         
     print(ColorText(f'\nsaved scatter fig to: {saveloc}').bold())
         
@@ -675,7 +682,7 @@ def main():
     performance_dicts = calculate_performance(offset_dfs, fitness_mat, popsamps, samppop)
     
     # create figs
-    fig_wrapper(performance_dicts, samppop, locations, offset_dfs, fitness_mat, envdata, fig_dir=fig_dir)
+    fig_wrapper(performance_dicts, samppop, popsamps, locations, offset_dfs, fitness_mat, envdata, fig_dir=fig_dir)
     
     # DONE!
     print(ColorText('\nDONE!!').bold().green())
@@ -693,7 +700,7 @@ if __name__ == '__main__':
     t1 = dt.now()
     
     # details about demography and selection
-    params = mvp10.read_params_file(slimdir, seed)
+    params = mvp10.read_params_file(slimdir)
     ntraits, level = params.loc[seed, ['N_traits', 'level']]
     
     # set globally

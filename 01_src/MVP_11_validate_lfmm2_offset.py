@@ -60,6 +60,7 @@ def check_file_counts():
 
 
 def read_lfmm_offset_dfs(outfiles):
+    """Read in .txt files containing population offset to a particular common garden."""
     print(ColorText('\nReading in lfmm offset predictions ...').bold().custom('gold'))
     
     offset_series = wrap_defaultdict(dict, 2)
@@ -82,7 +83,10 @@ def read_lfmm_offset_dfs(outfiles):
                 offset_cols.append(offset_col)
 
             # transpose so that source deme is column and transplant location (garden) is row
-            offset_dfs[marker_set][ntraits] = pd.concat(offset_cols, axis=1).T
+            df = pd.concat(offset_cols, axis=1).T
+            df.columns = df.columns.astype(str)
+            df.index = df.index.astype(int)
+            offset_dfs[marker_set][ntraits] = df
             
     # save offsets
     pkl = op.join(offset_dir, f'{seed}_offset_dfs.pkl')
@@ -235,7 +239,8 @@ def create_histo_subplots(performance_dict, performance_name, pdf, cmap='viridis
 #                                  cmap=cmap,
 #                                  program='lfmm2')
 #     fig.tight_layout()
-    mvp13.decorate_figure(marker_sets, fig, axes, title=f'{performance_name}\n{seed = }\n{level}\n', program='lfmm2')
+    mvp13.decorate_figure(marker_sets, fig, axes, xadjust=0.18,
+                          title=f'{performance_name}\n{seed = }\n{level}\n', program='lfmm2')
 
     # save
     pdf.savefig(bbox_inches="tight")
@@ -247,6 +252,7 @@ def create_histo_subplots(performance_dict, performance_name, pdf, cmap='viridis
 
 def create_heatmap_subplots(performance_dict, performance_name, pdf, locations,
                             cmap='viridis', use_vmin_vmax=True, marker_sets=['all', 'adaptive', 'neutral']):
+    """For garden or source performance, create a heatmap of the simulated landscape showing Kendall's tau."""
     print(ColorText(f'\nCreating heatmap subplots for {performance_name} ...').bold().custom('gold'))
     
     # differences between ntraits=1 and ntraits=2
@@ -302,7 +308,7 @@ def create_heatmap_subplots(performance_dict, performance_name, pdf, locations,
         
     # add labels, title, colorbar, etc
     title = f'{performance_name}\n{seed = }\n{level}\n'
-    mvp13.decorate_figure(marker_sets, fig, axes, title=title,
+    mvp13.decorate_figure(marker_sets, fig, axes, title=title, xadjust=0.18,
                           vmin=vmin, vmax=vmax, program='lfmm2')
 
     # save figure
@@ -319,7 +325,7 @@ def create_heatmap_subplots(performance_dict, performance_name, pdf, locations,
 
 
 def scatter_wrapper(offset_dfs, fitness, envdata, locations, pdf, marker_sets=['all', 'adaptive', 'neutral'], total_traits=None):
-    """Wrapper for `garden_performance_scatter`."""
+    """Wrapper for `mvp06.performance_scatter`."""
     print(ColorText('\nCreating scatter plots ...').bold().custom('gold'))
     for marker_set in marker_sets:
         for home_env in pbar(['sal_opt', 'temp_opt'], desc=marker_set):  # the environment for used to color populations
@@ -329,22 +335,28 @@ def scatter_wrapper(offset_dfs, fitness, envdata, locations, pdf, marker_sets=['
                 # color for the environment (temp_opt) of source_pop
                 colormap = 'Reds' if home_env=='temp_opt' else 'Blues_r'
                 cmap = plt.cm.get_cmap(colormap)
-                cols = offset.columns.map(envdata[home_env]).to_series().apply(mvp06.color, cmap=cmap, norm=norm).tolist()
                 
-                mvp06.garden_performance_scatter(offset,
-                                                 fitness,
-                                                 f'{label_dict[marker_set]} {which_traits}',
-                                                 locations,
-                                                 envdata,
-                                                 cols,
-                                                 pdf,
-                                                 norm=norm, cmap=cmap, seed=seed, fig_dir=fig_dir, program='lfmm'
-                                                )
+                colors = fitness.index.map(envdata[home_env]).to_series(index=fitness.index).apply(mvp06.color,
+                                                                                                   cmap=cmap,
+                                                                                                   norm=norm).to_dict()
+                
+                for garden_or_source in ['garden', 'source']:
+                    # plot performance within gardens across source populations
+                    mvp06.performance_scatter(offset.copy(),
+                                              fitness.copy(),
+                                              f'{label_dict[marker_set]} {which_traits}',
+                                              locations,
+                                              colors,
+                                              pdf,
+                                              norm=norm, cmap=cmap, seed=seed, fig_dir=fig_dir, home_env=home_env,
+                                              program='lfmm2',
+                                              garden_or_source=garden_or_source)
 
     pass
 
 
 def fig_wrapper(performance_dicts, offset_dfs, fitness, envdata, locations):
+    """Create figs."""
     # how many envs were selective?
     total_traits = ['ntraits-1', 'ntraits-2'] if ntraits == 1 else ['ntraits-2']
     
@@ -369,21 +381,13 @@ def fig_wrapper(performance_dicts, offset_dfs, fitness, envdata, locations):
             create_heatmap_subplots(performance_dict, performance_name, pdf, locations)
 
             # garden performance slope of fitness ~ offset
-            if performance_name == 'garden_performance':
-                mvp06.create_slope_heatmap_subplots(
-                    performance_name, performance_dicts['garden_slopes'].copy(), locations, pdf,
-                    total_traits=total_traits
-                )
-
-            # source performance slope of fitness ~ offset
-            if performance_name == 'source_performance':
-                mvp06.create_slope_heatmap_subplots(
-                    performance_name, performance_dicts['source_slopes'].copy(), locations, pdf,
-                    total_traits=total_traits
-                )
+            slope_group = performance_name.split("_")[0]
+            mvp06.create_slope_heatmap_subplots(
+                performance_name, performance_dicts[f'{slope_group}_slopes'].copy(), locations, pdf,
+                total_traits=total_traits, program='lfmm2'
+            )
 
     print(ColorText(f'\nsaved fig to: {saveloc}').bold())
-
     
     # save scatterplots separately so computers don't get slow trying to display everything
     saveloc = op.join(fig_dir, f'{seed}_lfmm_figures_scatter.pdf')
@@ -433,7 +437,7 @@ if __name__ == '__main__':
     t1 = dt.now()
     
     # details about demography and selection
-    ntraits, level = mvp10.read_params_file(slimdir, seed).loc[seed, ['N_traits', 'level']]
+    ntraits, level = mvp10.read_params_file(slimdir).loc[seed, ['N_traits', 'level']]
     
     # set globally
     norm = Normalize(vmin=-1.0, vmax=1.0)    
@@ -451,7 +455,9 @@ if __name__ == '__main__':
         'adaptive' : 'causal loci',
         'neutral' : 'neutral loci',
         'ntraits-1' : '1-env lfmm',
-        'ntraits-2' : '2-env lfmm'
+        'ntraits-2' : '2-env lfmm',
+        'sal_opt' : 'sal',
+        'temp_opt' : 'temp'
     }
     
     # pass objects to imported namespaces
