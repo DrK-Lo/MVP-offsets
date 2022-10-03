@@ -353,17 +353,17 @@ def create_training_shfiles():
     print(ColorText('Creating slurm sbatch files ...').bold().custom('gold'))
 
     mytime = {
-        'ind': {'all': '2-00:00:00',
+        'ind': {'all': '5-00:00:00',
                 'adaptive': '1:00:00',
                 'neutral' : '2-00:00:00'},
         
-        'pooled': {'all': '23:00:00',
+        'pooled': {'all': '2-00:00:00',
                    'adaptive': '1:00:00',
                    'neutral' : '23:00:00'}
     }
 
     mymem = {
-        'ind': {'all': '850000M',
+        'ind': {'all': '900000M',
                 'adaptive': '4000M',
                 'neutral' : '400000M'},
         
