@@ -1,5 +1,10 @@
 """Train Gradient Forests using simulations from the MVP project.
 
+URGENT NOTES
+------------
+- this script has been updated to ignore sbatching individual GF files (for now)
+    - if removed, MVP_02 and MVP_03 must also be updated
+
 Usage
 -----
 conda activate mvp_env
@@ -357,9 +362,9 @@ def create_training_shfiles():
                 'adaptive': '1:00:00',
                 'neutral' : '2-00:00:00'},
         
-        'pooled': {'all': '2-00:00:00',
+        'pooled': {'all': '1-00:00:00',
                    'adaptive': '1:00:00',
-                   'neutral' : '23:00:00'}
+                   'neutral' : '12:00:00'}
     }
 
     mymem = {
@@ -375,6 +380,8 @@ def create_training_shfiles():
     partition = wrap_defaultdict(lambda: 'short', 2)
     partition['ind']['all'] = 'long'
     partition['ind']['neutral'] = 'long'
+    partition['pooled']['neutral'] = 'lotterhos'
+#     partition['pooled']['all'] = 'long'
 
     shfiles = []
     for ind_or_pooled in ['ind', 'pooled']:
@@ -481,7 +488,7 @@ def main():
     shfiles = create_training_shfiles()
     
     # submit jobs to queue
-    submit_jobs(shfiles)
+    submit_jobs([sh for sh in shfiles if '_ind_' not in op.basename(sh)])   # REMOVE TO ALLOW INDIVIDUAL-LEVEL SBATCHING
 
     print(ColorText('\nShutting down engines ...').bold().custom('gold'))
     print(ColorText(f'\ntime to complete: {formatclock(dt.now() - t1, exact=True)}'))
