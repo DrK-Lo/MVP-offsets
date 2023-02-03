@@ -118,6 +118,7 @@ subset_snps = function(){
 
     } else if (use_RDA_outliers == 'CAUSAL'){  # get known causal loci from sims
         outliers = muts[muts[, 'mutID'] != 1, 'mutname']
+        
     } else {  # get known neutral loci from sims
         outliers = muts[muts[, 'causal_temp'] == 'neutral' & muts[, 'causal_sal'] == 'neutral', 'mutname']
         # at this time, muts did not filter out AF > 0.99 but did filter out AF < 0.01, so I take intersection

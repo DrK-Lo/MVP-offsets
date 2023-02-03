@@ -171,7 +171,7 @@ print(proc.time() - ptm)
 
 
 rm(cand_freqs)
-
+gc()  # manual garbage collection to avoid mem issues when using `predict` below
 
 ### INTEROPOLATE MODEL TO RANGE_WIDE DATA FOR THE SAME TIME PERIOD
 cat(sprintf('\n\nInterpolating gradient forests model ...\n'))
