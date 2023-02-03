@@ -40,6 +40,9 @@ def read_params_file(slimdir):
     # read in the file, drop meaningless rows
     params = pd.read_table(paramsfile, delim_whitespace=True)
     params = params[params['seed'].notnull()]
+    
+    # fix misspelling
+    params['level'] = params['level'].str.replace('oliogenic', 'oligogenic')
 
     # set dataframe index as seed ID
     params.index = params['seed'].astype(int).astype(str).tolist()
@@ -243,7 +246,7 @@ def create_adaptive_and_neutral_files():
     return loci_files
 
 
-def create_shfiles(lfmm_envfiles, poplabel_file, garden_files, locus_files, thresh=34):
+def create_shfiles(lfmm_envfiles, poplabel_file, garden_files, locus_files, thresh=36):
     """Create slurm job files to estimate genetic offset using lfmm method.
     
     Notes
@@ -266,7 +269,7 @@ def create_shfiles(lfmm_envfiles, poplabel_file, garden_files, locus_files, thre
     locus_files - list
         paths to files to be used for the `candidate.loci` argument of lfmm genetic.offset function
     thresh - int
-        number of CPUs per job so I can be around 160GB mem, at ~4700MB per job (capcity is ~180GB per node)
+        number of CPUs per job so I can be < 180GB mem, at ~4700MB per job (capcity for lotterhos node is ~180GB per node)
     """
     print(ColorText('\nCombining commands into batches and writing slurm sh files ...').bold().custom('gold'))
     
@@ -303,9 +306,9 @@ def create_shfiles(lfmm_envfiles, poplabel_file, garden_files, locus_files, thre
 
                     # determine amount of memory required (with cushion)
                     if len(cmds) == thresh:
-                        mem = '165000M' 
+                        mem = '175000M' 
                     else:
-                        val = (len(cmds) * 4700) + 5000
+                        val = (len(cmds) * 4900) + 5000
                         mem = f'{val}M'
 
                     # write commands to a file that I can `cat` to GNU parallel
@@ -319,9 +322,9 @@ def create_shfiles(lfmm_envfiles, poplabel_file, garden_files, locus_files, thre
                     # what text to write to sh
                     text = f'''#!/bin/bash
 #SBATCH --job-name={job}
-#SBATCH --time=01:00:00
+#SBATCH --time=03:00:00
 #SBATCH --mem={mem}
-#SBATCH --partition=lotterhos
+#SBATCH --partition=short
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task={len(cmds)}
 #SBATCH --output={job}_%j.out
@@ -404,7 +407,7 @@ def kickoff_validation(pids):
 #SBATCH --job-name={basename}
 #SBATCH --time=3:00:00
 #SBATCH --mem=4000
-#SBATCH --partition=lotterhos
+#SBATCH --partition=short
 #SBATCH --nodes=1
 #SBATCH --output={basename}_%j.out
 #SBATCH --mail-user={email}
