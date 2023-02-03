@@ -407,7 +407,7 @@ def create_slope_heatmap_subplots(performance_name, slope_dict, locations, pdf, 
     pass
 
 
-def fig_setup(locations):
+def fig_setup(locations, sharex='all', sharey='all'):
     """Get figure position (order) of each population on a 10x10 subplot."""
     count = 0
     figpos = {}
@@ -419,8 +419,8 @@ def fig_setup(locations):
             
     # set up big fig
     fig, axes = plt.subplots(10, 10,
-                             sharex='all',
-                             sharey='all',
+                             sharex=sharex,
+                             sharey=sharey,
                              figsize=(15, 10))
     return figpos, fig, axes
 
@@ -429,7 +429,7 @@ def performance_scatter(
     offset, fitness, figlabel, locations, colors, pdf, popsamps=None, cmap=None, norm=None, seed=None, fig_dir=None,
     program='RONA', home_env=None, rona_env='', garden_or_source='garden', ind_or_pooled='pooled'
 ):
-    """Create a map of pops using coords, show relationsip between RONA and fitness."""
+    """Create a map of pops using coords, show relationsip between `program` offset and fitness."""
     figpos, fig, axes = fig_setup(locations)
     
     # create each of the population subfigures in the order matplotlib puts them into the figure
@@ -479,7 +479,7 @@ def performance_scatter(
     fig.supxlabel('predicted offset', x=0.431, y=0.045, ha='center', va='center', fontsize=14, weight='bold')
     fig.suptitle(
         f'{seed}\n' +\
-        f'{program} {garden_or_source} performance for {label}{rona_env}\n' +\
+        f'{program} {garden_or_source} performance for {figlabel}{rona_env}\n' +\
         f'transplanted pops colored by home environment\n{level}'
     )
 
@@ -556,12 +556,6 @@ def fig_wrapper(performance_dicts, samppop, offset_dfs, fitness, envdata, locati
             slope_group = performance_name.split("_")[0]
             create_slope_heatmap_subplots(performance_name, performance_dicts[f'{slope_group}_slopes'].copy(), locations, pdf)
 
-#             if performance_name == 'garden_performance':
-#                 create_slope_heatmap_subplots(performance_name, performance_dicts['garden_slopes'].copy(), locations, pdf)
-
-#             if performance_name == 'source_performance':
-#                 create_slope_heatmap_subplots(performance_name, performance_dicts['source_slopes'].copy(), locations, pdf)
-
     print(ColorText(f'\nsaved fig to: {saveloc}').bold())
 
     # save scatterplots separately so computers don't get slow trying to display everything
@@ -611,7 +605,7 @@ if __name__ == '__main__':
     t1 = dt.now()
     
     # details about demography and selection
-    level = mvp10.read_params_file(slimdir).loc[seed,'level']
+    level = mvp10.read_params_file(slimdir).loc[seed, 'level']
 
     # create dirs
     rona_dir = op.dirname(op.dirname(rona_outdir))
