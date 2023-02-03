@@ -1,5 +1,12 @@
 """Fit trained models from gradient forests to the climate of a transplant location (ie the populations in the simulation).
 
+URGENT NOTES
+------------
+- this script is modified to expect only pooled samples
+    - this script now only asserts 3 predfiles (assert len(predfile))
+    - I also added exclude='_ind_' in the fs function of run_fit_gradient_forests
+    - if removed, MVP_01 and MVP_03 also need to be updated
+
 Usage
 -----
 conda activate mvp_env
@@ -183,8 +190,9 @@ def run_fit_gradient_forests(garden_files):
     print(ColorText('\nFitting gradient forest models to common garden climates ...').bold().custom('gold'))
 
     # get the RDS output from training
-    predfiles = fs(training_outdir, pattern=f'{seed}_', endswith='predOut.RDS')
-    assert len(predfiles) == 6, print(len(predfiles), predfiles)  # ind_all ind_adaptive ind_neural, pooled_all pooled_adaptive, pooled_neutral
+    predfiles = fs(training_outdir, pattern=f'{seed}_', endswith='predOut.RDS', exclude='_ind_')
+#     assert len(predfiles) == 6, (len(predfiles), predfiles)  # ind_all ind_adaptive ind_neural, pooled_all pooled_adaptive, pooled_neutral
+    assert len(predfiles) == 3, (len(predfiles), predfiles)  # pooled_all pooled_adaptive, pooled_neutral
 
     # run parallelization
     jobs = []
@@ -194,7 +202,7 @@ def run_fit_gradient_forests(garden_files):
         trainingfile = predfile.replace("_predOut.RDS", "_training.RDS")
         assert op.exists(trainingfile)
         
-        # was this predfile from training with individuals or pools? with adaptive loci or all?
+        # was this predfile from training with individuals or pools? which marker set?
         ind_or_pooled, marker_set = op.basename(predfile)\
                                             .split("GF_training_")[1]\
                                             .split("_gradient_forest")[0]\

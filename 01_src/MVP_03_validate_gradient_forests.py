@@ -1,5 +1,12 @@
 """Validate trained models of Gradient Forests.
 
+URGENT NOTES
+------------
+- this script is modified to expect only pooled samples
+    - i've updated assertion of len(files) == len(rdsfiles)
+    - I also exclude _ind_ in the fs function within get_offset_predictions (two fs functions!)
+    - if removed, MVP_01 and MVP_02 need to be updated as well
+
 Usage
 -----
 conda activate mvp_env
@@ -60,11 +67,12 @@ def get_offset_predictions(seed):
     """Get offset predictions output by MVP_02_fit_gradient_forests.py."""
     print(ColorText('\nRetrieving predicted offsets ...').bold().custom('gold'))
     # get the predicted offset from files output from fitting created in ../02_fit_gradient_forests.ipynb
-    files = fs(fitting_dir, endswith='offset.txt', startswith=f'{seed}')
+    files = fs(fitting_dir, endswith='offset.txt', startswith=f'{seed}', exclude='_ind_')  # CHANGE!
 
     # make sure just as many RDS files were created from fitting script (ie that all fitting finished)
-    rdsfiles = fs(fitting_dir, endswith='.RDS', startswith=f'{seed}')
-    assert len(files) == len(rdsfiles) == 600, (len(files), len(rdsfiles))  # 100 gardens * 3 marker sets * ind_or_pooled
+    rdsfiles = fs(fitting_dir, endswith='.RDS', startswith=f'{seed}', exclude='_ind_')
+#     assert len(files) == len(rdsfiles) == 600, (len(files), len(rdsfiles))  # 100 gardens * 3 marker sets * ind_or_pooled
+    assert len(files) == len(rdsfiles) == 300, (len(files), len(rdsfiles))  # 100 gardens * 3 marker sets
 
     outfiles = wrap_defaultdict(dict, 3)
     for outfile in files:
@@ -285,7 +293,8 @@ def create_histo_subplots(performance_dict, performance_name, pdf, cmap='viridis
     for row, marker_set in enumerate(marker_sets):
         row_axes = axes[row]
         col = 0  # column counter
-        for ind_or_pooled in ['ind', 'pooled']:
+#         for ind_or_pooled in ['ind', 'pooled']:
+        for ind_or_pooled in ['pooled']:  # CHANGE BACK to include 'ind'
             ax = row_axes[col]
 
             # create the histo_boxplot
@@ -339,7 +348,8 @@ def fill_slope_heatmaps(marker_sets, heatmaps, vmin, vmax):
     # fill in subplots with histograms
     for row, marker_set in enumerate(marker_sets):
         row_axes = axes[row]
-        for col, ind_or_pooled in enumerate(['ind', 'pooled']):
+#         for col, ind_or_pooled in enumerate(['ind', 'pooled']):
+        for col, ind_or_pooled in enumerate(['pooled']):  # CHANGE BACK to include 'ind'
             ax = row_axes[col]
             
             # add in some labels
@@ -408,7 +418,8 @@ def create_scatter_plots(offset_dfs, fitness_mat, locations, envdata, samppop, p
                          marker_sets=['all', 'adaptive', 'neutral']):
     """Create a figure of the simulated landscape (10x10) with fitness~offset in each location (x, y)."""
     print(ColorText('\nCreating scatter plots').bold().custom('gold'))
-    for ind_or_pooled in ['ind', 'pooled']:
+#     for ind_or_pooled in ['ind', 'pooled']:
+    for ind_or_pooled in ['pooled']:  # CHANGE BACK to include 'ind'
         for row, marker_set in enumerate(pbar(marker_sets, desc=ind_or_pooled)):
             offset = offset_dfs[ind_or_pooled][marker_set].copy()
             fitness = fitness_mat[ind_or_pooled].copy()
@@ -493,6 +504,8 @@ def create_slope_heatmap_subplots(performance_name, slope_dict, locations, pdf, 
     
     # save heatmaps
     pkl = op.join(heat_dir, f'{seed}_{performance_name}_slope_heatmaps.pkl')
+    pkldump(heatmaps, pkl)
+    print(f'\n\tSaved {performance_name} slope heatmaps to: {pkl}')
 
     pass
 
@@ -519,7 +532,8 @@ def create_heatmap_subplots(performance_dict, performance_name, pdf, samppop, lo
     for row, marker_set in enumerate(marker_sets):
         row_axes = axes[row]
         col = 0  # column counter
-        for ind_or_pooled in ['ind', 'pooled']:
+#         for ind_or_pooled in ['ind', 'pooled']:
+        for ind_or_pooled in ['pooled']:  # CHANGE BACK to include 'ind'
             ax = row_axes[col]
 
             corrs = performance_dict[ind_or_pooled][marker_set].copy()
