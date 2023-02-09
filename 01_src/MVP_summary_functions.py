@@ -46,7 +46,7 @@ boxplot_kwargs = {  # kwargs for seaborn.catplot (boxplot) properties
                     'markeredgecolor' : '#bebebe',
                     'markerfacecolor' : 'none',
                     'markeredgewidth' : 0.2,
-                    'markersize' : 4
+                    'markersize' : 4,
                     'marker' : '.',
                     'alpha' : 0.6},
     
