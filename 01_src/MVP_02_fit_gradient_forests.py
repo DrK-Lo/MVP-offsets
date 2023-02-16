@@ -53,34 +53,6 @@ def make_fitting_dirs(training_outdir):
     return garden_dir, fitting_dir, training_filedir
 
 
-# def load_fitness_matrix():
-#     """Load fitness matrix output from simulations."""
-#     # an n_deme x n_deme table that indicates the mean fitness of individuals 
-#         # from the source deme (in columns) in the transplant deme (in rows) 
-        
-#     fitness = pd.read_table(op.join(slimdir, f'{seed}_fitnessmat.txt'),
-#                             delim_whitespace=True,
-#                             header=None)
-
-#     # set column names for popID
-#     fitness.columns = range(1, 101, 1)
-#     fitness.index = range(1, 101, 1)
-
-#     return fitness
-
-
-# def get_pop_locations():
-#     """Get coordinates for each population in the simulations."""
-#     # get the individuals that were subsampled from full simulation
-#     subset = read_ind_data()
-
-#     # get x and y coords for each population
-#     locations = subset.groupby('subpopID')[['x', 'y']].apply(np.mean)
-#     locations.columns = ['lon', 'lat']  # index = subpopID
-    
-#     return locations
-
-
 def get_envdata():
     """Read in the environmental data used to train gradient forests.
     
