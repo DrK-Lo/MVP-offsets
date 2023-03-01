@@ -6,6 +6,7 @@ URGENT NOTES
     - i've updated assertion of len(files) == len(rdsfiles)
     - I also exclude _ind_ in the fs function within get_offset_predictions (two fs functions!)
     - if removed, MVP_01 and MVP_02 need to be updated as well
+    - I also added input arg `expected` so I can do cross val etc without breaking script
 
 Usage
 -----
@@ -63,7 +64,7 @@ def load_ind_fitness_matrix(slimdir, seed, subset):
     return fitness
 
 
-def get_offset_predictions(seed):
+def get_offset_predictions(seed, expected=300):
     """Get offset predictions output by MVP_02_fit_gradient_forests.py."""
     print(ColorText('\nRetrieving predicted offsets ...').bold().custom('gold'))
     # get the predicted offset from files output from fitting created in ../02_fit_gradient_forests.ipynb
@@ -72,7 +73,7 @@ def get_offset_predictions(seed):
     # make sure just as many RDS files were created from fitting script (ie that all fitting finished)
     rdsfiles = fs(fitting_dir, endswith='.RDS', startswith=f'{seed}', exclude='_ind_')
 #     assert len(files) == len(rdsfiles) == 600, (len(files), len(rdsfiles))  # 100 gardens * 3 marker sets * ind_or_pooled
-    assert len(files) == len(rdsfiles) == 300, (len(files), len(rdsfiles))  # 100 gardens * 3 marker sets
+    assert len(files) == len(rdsfiles) == expected, (len(files), len(rdsfiles))  # 100 gardens * 3 marker sets
 
     outfiles = wrap_defaultdict(dict, 3)
     for outfile in files:
@@ -627,7 +628,7 @@ def fig_wrapper(performance_dicts, offset_dfs, fitness_mat, locations, samppop, 
     pass
 
 
-def main():
+def main(expected):
     # get a list of subsampled individuals, map samp top subpopID, and get population locations for each subpopID
     subset, locations, envdata = mvp06.get_pop_data(slimdir, seed)
 
@@ -642,7 +643,7 @@ def main():
                    'pooled': mvp06.load_pooled_fitness_matrix(slimdir, seed)}
     
     # get predicted offset
-    offset_dfs = get_offset_predictions(seed)
+    offset_dfs = get_offset_predictions(seed, expected)
     
     # calculate validation scores
     performance_dicts = calculate_performance(offset_dfs, fitness_mat, popsamps, samppop)
@@ -658,7 +659,12 @@ def main():
 
 if __name__ == '__main__':
     # get input args
-    thisfile, seed, slimdir, gf_parentdir = sys.argv
+    thisfile, seed, slimdir, gf_parentdir, *expected = sys.argv
+    
+    if len(expected) > 0:
+        expected = expected[0]
+    else:
+        expected = 300
 
     print(ColorText(f'\nStarting {op.basename(thisfile)} ...').bold().custom('gold'))
 
@@ -702,4 +708,4 @@ if __name__ == '__main__':
     mvp06.label_dict = label_dict
     mvp06.level = level
     
-    main()
+    main(expected)
