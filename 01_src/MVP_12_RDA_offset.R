@@ -39,19 +39,6 @@
 #     - NEUTRAL if script should use neutral loci from sims
 # ntraits
 #     - the number of traits (environments) under selection in the simulation seed
-#
-# BIG TODO
-# --------
-# - figure out pcdata rownames to match envdata, and think about implication to PC object from pooled data
-#
-# TODO
-# ----
-# - infer K from data files
-# - create figure with RDA outliers
-# - create figure as in Capblancq & Forester 2021 to show "adaptive landscape across space"
-# - infer PCA from known nuetral markers
-#    - for individual data, PCs were estimated using all loci after filtering MAF
-#    - for pooled data, PCs were estimated in MVP_pooled_pca_and_rda.R
 #-------------------------------------------------------------------------------------------------------------#
 
 library(data.table)
@@ -473,6 +460,10 @@ get_garden_climates = function(subset, num_expected=100){
     #          columns include climate data (temp_opt and sal_opt)
     # num_expected
     #     - number of expected gardens (N=100)
+    #
+    # Returns
+    # -------
+    # garden_climates - data.frame, ncol=n_env, nrow=n_pop
     #----------------------------------------------------------------------------------------------------#
     garden_climates = aggregate(cbind(temp_opt, sal_opt) ~ subpopID, subset, mean)
     rownames(garden_climates) = garden_climates$subpopID
@@ -529,6 +520,30 @@ create_garden_data <- function(garden_climates, subset, subpopID, ntraits){
 }
 
 
+get_garden_num <- function(subpopID, garden_climates){
+    #####################################################################################################
+    # Add leading zeros to subpopID
+    #
+    # garden_climates unused - for compatibility with MVP_climate_outlier_RDA_offset.R :: get_garden_num
+    #####################################################################################################
+    garden_num = sprintf("%03d", as.integer(subpopID))
+    return(garden_num)
+}
+
+
+sort_dfs_indices <- function(dfs){
+    #####################################################
+    # Sort rownames (subpopID) and colums (transplatID).
+    #####################################################
+    rownames(dfs) = sprintf("%05d", as.integer(rownames(dfs)))  # add leading zero for sorting (should have just done as.numeric)
+    dfs = dfs[order(rownames(dfs)), order(colnames(dfs))]  # sort
+    rownames(dfs) = as.character(as.integer(rownames(dfs)))  # remove leading zeros from `garden_num` (ie rownames)
+    colnames(dfs) = as.integer(colnames(dfs))  # remove leading zero
+    
+    return(dfs)
+}
+
+
 estimate_garden_offsets = function(subset, outlier_rda, env_pres, ntraits=2, num_expected=100){
     #-------------------------------------------------------------------------------------------------#
     # Iterate common garden environments and estimate offset to each environment.
@@ -554,7 +569,7 @@ estimate_garden_offsets = function(subset, outlier_rda, env_pres, ntraits=2, num
     # estimate offset to each garden
     prog_bar = progress_bar$new(
         format="estimating offset across gardens [:bar] :current/:total (:percent) eta: :eta",
-        total=100, clear=FALSE, width=100
+        total=nrow(garden_climates), clear=FALSE, width=100
     )
     dfs = c()
     offset_lists = list()
@@ -566,7 +581,7 @@ estimate_garden_offsets = function(subset, outlier_rda, env_pres, ntraits=2, num
         offset_list = genomic_offset(outlier_rda, env_pres, env_fut)
         
         # create garden_num from subpopID by adding three leading zeros
-        garden_num = sprintf("%03d", as.integer(subpopID))
+        garden_num = get_garden_num(subpopID, garden_climates)
 
         # separate actual offset prediction
         offset = data.frame(
@@ -589,10 +604,7 @@ estimate_garden_offsets = function(subset, outlier_rda, env_pres, ntraits=2, num
     }
     
     # sort dfs columns and rows
-    rownames(dfs) = sprintf("%05d", as.integer(rownames(dfs)))  # add leading zero for sorting
-    dfs = dfs[order(rownames(dfs)), order(colnames(dfs))]  # sort
-    rownames(dfs) = as.character(as.integer(rownames(dfs)))  # remove leading zeros from `garden_num` (ie rownames)
-    colnames(dfs) = as.integer(colnames(dfs))  # remove leading zero
+    dfs = sort_dfs_indices(dfs)
     
     # transpose so that source is columns and transplant env is rows
     dfs = t(dfs)
