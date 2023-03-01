@@ -33,22 +33,25 @@ boxplot_kwargs = {  # kwargs for seaborn.catplot (boxplot) properties
                  'RONA-temp_opt' :  (0.5803921568627451, 0.5803921568627451, 0.5803921568627451),  # grayish
                  'lfmm2' : sns.color_palette("Paired")[-5],
                  'GF' : sns.color_palette("Paired")[9],
-                 'rda' : sns.color_palette("viridis")[-1]},
+                 'rda' : sns.color_palette("viridis")[-1],
+                 'adaptive' : sns.color_palette('magma', n_colors=11)[-5],
+                 'all' : sns.color_palette('magma', n_colors=11)[-3],
+                 'neutral' : sns.color_palette('magma', n_colors=11)[-1]
+                },
     
     'whiskerprops' : {'color' : '#bebebe'},
     
     'medianprops' : {'color' : '#bebebe',
-                    'alpha' : 1.0},
+                     'alpha' : 1.0},
     
     'boxprops' : {'edgecolor' : '#bebebe'},
     
     'flierprops' : {'color' : '#bebebe',
                     'markeredgecolor' : '#bebebe',
                     'markerfacecolor' : 'none',
-                    'markeredgewidth' : 0.2,
+                    'markeredgewidth' : 0.5,
                     'markersize' : 4,
-                    'marker' : '.',
-                    'alpha' : 0.6},
+                    'marker' : '.'},
     
     'capprops' : {'color' : '#bebebe'}
 }
@@ -70,7 +73,9 @@ hue_order = {
     'slevel' : ['equal-S', 'unequal-S'],
     'popsize' : ['N-equal', 'N-variable', 'N-cline-center-to-edge', 'N-cline-N-to-S'],
     'migration' : ['m-constant', 'm-variable', 'm-breaks'],
-    'noncausal_env' : ['all causal', 'one noncausal', 'no noncausal']
+    'noncausal_env' : ['all causal', 'one noncausal', 'no noncausal'],
+    'marker_set' : ['adaptive', 'all', 'neutral'],
+    'program' : ['RONA', 'RONA-sal_opt', 'RONA-temp_opt', 'lfmm2', 'rda', 'GF']
 }
 
 
@@ -106,7 +111,7 @@ def display_level_dfs(level_scores=None):
     pass
 
 
-def jitter_fliers(g, jitter_axis='x'):
+def jitter_fliers(g, jitter_axis='x', jit=0.05):
     """Add jitter to boxplot outliers.
     
     Parameters
@@ -123,11 +128,11 @@ def jitter_fliers(g, jitter_axis='x'):
             if artist.get_linestyle() == "None":
                 if jitter_axis == 'x' :
                     pos = artist.get_xdata()
-                    artist.set_xdata(pos + np.random.uniform(-.05, .05, len(pos)))
+                    artist.set_xdata(pos + np.random.uniform(-jit, jit, len(pos)))
                 else:
                     assert jitter_axis == 'y'
                     pos = artist.get_ydata()
-                    artist.set_ydata(pos + np.random.uniform(-.05, .05, len(pos)))
+                    artist.set_ydata(pos + np.random.uniform(-jit, jit, len(pos)))
                     
     pass
 
@@ -252,7 +257,7 @@ def get_summary_data():
     return df
 
 
-def get_bcs_data(level_scores):
+def get_bcs_data(level_scores, performance='garden_performance'):
     """Get validation data for 'best case scenario'.
 
     Notes
@@ -262,7 +267,7 @@ def get_bcs_data(level_scores):
     bcs = {}
     for program in level_scores:
         # reduce to bcs
-        data = level_scores[program]['garden_performance'].copy()
+        data = level_scores[program][performance].copy()
         data = data[(data['marker_set']=='all') & (data['plevel'] == '2-trait')]
 
         if program == 'rda' :
@@ -287,7 +292,7 @@ def get_bcs_data(level_scores):
     return bcs
 
 
-repdirs = ['/work/lotterhos/MVP-Offsets/run_20220919',
+repdirs = ['/work/lotterhos/MVP-Offsets/run_20220919_old',
            '/work/lotterhos/MVP-Offsets/run_20220919_225-450',
            '/work/lotterhos/MVP-Offsets/run_20220919_450-675',
            '/work/lotterhos/MVP-Offsets/run_20220919_675-900',
@@ -295,7 +300,7 @@ repdirs = ['/work/lotterhos/MVP-Offsets/run_20220919',
 #            '/work/lotterhos/MVP-Offsets/run_20220919_1125-1350',  # not done yet
           ]
 
-def combine_level_dicts(use_bcs_data=True, display_df=False):
+def combine_level_dicts(use_bcs_data=True, display_df=False, performance='garden_performance'):
     """Across pipline batches, combine garden performance scores into one pd.DataFrame.
     
     Parameters
@@ -306,10 +311,10 @@ def combine_level_dicts(use_bcs_data=True, display_df=False):
     summary = get_summary_data()
     
     level_dicts = defaultdict(dict)
-    for repdir in pbar(repdirs, desc=f'reading reps ({use_bcs_data = })'):
+    for repdir in pbar(repdirs, desc=f'reading reps ({use_bcs_data = }, {performance = })'):
         rep = op.basename(repdir).split('_')[-1]
 
-        if rep == '20220919' :
+        if rep == '20220919_old' :
             rep = '0-225'
 
         pkl = op.join(repdir, 'summaries/all_performance_dicts/level_scores.pkl')
@@ -317,11 +322,11 @@ def combine_level_dicts(use_bcs_data=True, display_df=False):
         level_scores = pklload(pkl)
 
         if use_bcs_data is True:
-            data = get_bcs_data(level_scores)
+            data = get_bcs_data(level_scores, performance=performance)
         else:
             data = {}
             for program in level_scores.keys():
-                data[program] = level_scores[program]['garden_performance']
+                data[program] = level_scores[program][performance]
 
         level_dicts[rep] = data
         
@@ -359,6 +364,56 @@ def combine_level_dicts(use_bcs_data=True, display_df=False):
         all_scores[program] = df.copy()
 
     return all_scores
+
+
+def subset_data(scores, num_traits=None, ntraits=None, marker_set=None, apply_median=True, remove_structcrxn=True):
+    """Subset scores to kwargs.
+    
+    Parameters
+    ----------
+    scores - dict
+        eg object returned from combine_level_dicts
+        note that if used on object returned from get_bcs_data, `num_traits` and `marker_set` are irrelevant
+    num_traits - int
+        the number of traits under selection in the sims
+    ntraits - int
+        the number of traits used to train offset methods
+        ie if num_traits == 2 then ntraits = 2; if num_traits == 1 then ntraits in {1, 2}    
+    """
+    data = {}
+    for program in scores.keys():
+        df = scores[program].copy()
+
+        if num_traits is not None:
+            df = df[df['plevel'] == f'{num_traits}-trait']
+            
+        if marker_set is not None:
+            df = df[df['marker_set'] == marker_set]
+
+        if 'ntraits' in df.columns.tolist() and ntraits is not None:
+            df = df[df['ntraits'] == f'ntraits-{ntraits}']
+
+        if 'structcrxn' in df.columns.tolist() and remove_structcrxn is True:
+            df = df[df['structcrxn'] == 'nocorr']
+
+        seed = df.index.tolist()[0]
+        print(program, Counter(df.seed)[seed])
+
+        if program == 'RONA':
+            for env in ['sal_opt', 'temp_opt']:
+                dfenv = df[df['env']==env].copy()
+
+                if apply_median is True:
+                    data[f'RONA-{env}'] = dfenv.groupby('seed')['score'].apply(np.median)
+                else:
+                    data[f'RONA-{env}'] = dfenv['score']
+        else:
+            if apply_median is True:
+                data[program] = df.groupby('seed')['score'].apply(np.median)  # median score for each seed
+            else:
+                data[program] = df['score']
+            
+    return data
 
 
 def latest_commit():
