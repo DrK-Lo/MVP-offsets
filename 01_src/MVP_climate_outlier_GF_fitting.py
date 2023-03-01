@@ -64,6 +64,7 @@ if __name__ == '__main__':
     # start cluster
     print(ColorText('\nStarting engines ...').bold().custom('gold'))
     lview, dview, cluster_id = start_engines(n=7, profile=f'climate_outlier_{num}')
+    mvp02.lview = lview
     
     # load objects to cluster
     rscript_exe = '/home/b.lind/anaconda3/envs/r35/lib/R/bin/Rscript'
