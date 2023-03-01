@@ -91,7 +91,7 @@ def calculate_performance(offset_dfs, fitness_mat, popsamps, samppop):
 
     for (ind_or_pooled, marker_set, which_traits, structcorr), offset in unwrap_dictionary(offset_dfs):
         fitness = fitness_mat[ind_or_pooled].copy()
-        assert fitness.shape == offset.shape
+        assert fitness.shape == offset.shape, f'{fitness.shape}  {offset.shape}'
 
         # correlation of fitness and offset within gardens across transplants
         garden_performance[ind_or_pooled][marker_set][which_traits][structcorr] = offset.corrwith(
