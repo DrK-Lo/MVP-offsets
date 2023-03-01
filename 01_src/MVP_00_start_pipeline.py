@@ -400,7 +400,7 @@ python MVP_13_RDA_validation.py {seed} {args.slimdir} {args.outdir}
     pids = sbatch(shfiles)
 
     # create alert for notification
-    create_watcherfile(pids, shdir, watcher_name='rda_watcher', email=args.email)
+    create_watcherfile(pids, shdir, watcher_name='rda_watcher', email=args.email, end_alert=True)
 
     pass
         
