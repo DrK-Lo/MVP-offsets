@@ -187,7 +187,12 @@ def get_012(subset, muts):
 
 
 def pop_freq(df):
-    """For each locus, get frequency of derived allele for each pop."""
+    """For each locus, get frequency of derived allele for each pop.
+    
+    Notes
+    -----
+    popsamps is expected to be in globals() (eg dview) - see create_pop_freqs
+    """
     from collections import defaultdict
     import pandas as pd
 
@@ -380,8 +385,8 @@ def create_training_shfiles():
     partition = wrap_defaultdict(lambda: 'short', 2)
     partition['ind']['all'] = 'long'
     partition['ind']['neutral'] = 'long'
-    partition['pooled']['neutral'] = 'lotterhos'
-#     partition['pooled']['all'] = 'long'
+    partition['pooled']['neutral'] = 'short'
+    partition['pooled']['adaptive'] = 'lotterhos'
 
     shfiles = []
     for ind_or_pooled in ['ind', 'pooled']:
@@ -457,6 +462,7 @@ def submit_jobs(shfiles):
                        rem_flags=['#SBATCH --nodes=1', '#SBATCH --cpus-per-task=7'],
                        mem='300000M',
                        begin_alert=False,
+                       end_alert=True,
                        added_text=shtext)
     
     pass
