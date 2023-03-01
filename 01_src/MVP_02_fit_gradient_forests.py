@@ -98,7 +98,7 @@ def create_garden_files(envdfs: dict, envfiles: dict) -> defaultdict:
     return garden_files
 
 
-def fit_gradient_forests(gfOut_trainingfile, garden_file, predfile, basename, save_dir):
+def fit_gradient_forests(rscript_exe, fitting_file, gfOut_trainingfile, garden_file, predfile, basename, save_dir):
     """Fit trained Gradient Forest model using `fitting_file` from above.
     
     Notes
@@ -187,7 +187,9 @@ def run_fit_gradient_forests(garden_files):
             assert basename not in basenames
             basenames.append(basename)
 
-            args = (trainingfile,
+            args = (rscript_exe,
+                    fitting_file,
+                    trainingfile,
                     garden_file,
                     predfile,
                     basename,
@@ -225,6 +227,7 @@ def main():
     print(ColorText(f'\ttime to complete: {formatclock(dt.now() - t1, exact=True)}\n'))
 
     pass
+
 
 if __name__ == '__main__':
     # get input args
