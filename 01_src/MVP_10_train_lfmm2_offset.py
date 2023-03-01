@@ -151,7 +151,7 @@ def create_poplabels(subset):
 
 def create_transplant_envfiles(subset, lfmm_envfiles):
     """Create environment files for the `new.env` argument of lfmm genetic.offset function.
-    
+
     Parameters
     ----------
     subset - pd.DataFrame
@@ -163,33 +163,33 @@ def create_transplant_envfiles(subset, lfmm_envfiles):
         - values are paths to the files used for the `env` argument of the lfmm genetic.offset function
         - if there is only one adaptive trait, then the dict is of length=2 (both envs + only
             adaptive env), otherwise is of length=1 (both envs)
-        
+
     Returns
     -------
     garden_files - defaultdict(list)
         list of paths; each path to be used for the `new.env` argument of lfmm genetic.offset function
     """
     print(ColorText('\nCreating envfiles for transplant (subpopID) environments ...').bold().custom('gold'))
-    
+
     # key = env val = dict with key=subpopID and val=env_value
     transplant_envdata = subset.groupby('subpopID')[['sal_opt', 'temp_opt']].apply(np.mean)
 
     # create transplant environmental files
     garden_files = defaultdict(list)
     for n_traits, lfmm_envfile in lfmm_envfiles.items():
-        envs = ['temp_opt'] if n_traits==1 else ['sal_opt', 'temp_opt']
-        
+        envs = ['temp_opt'] if n_traits==1 else ['sal_opt', 'temp_opt']  # this would have been better w/ temp_opt first!
+
         for subpop_id, (sal_opt, temp_opt) in transplant_envdata.iterrows():
             X_new = subset[envs].copy()  # create dataframe to be overwritten
-            
+
             X_new['temp_opt'] = temp_opt  # overwrite temp_opt with single value of transplant env
-            
+
             if 'sal_opt' in envs:  # if both envs are adaptive, or adding in non-adaptive env
                 X_new['sal_opt'] = sal_opt  # overwrite sal_opt with single value of transplant env
 
             lfmm_envfile_new = lfmm_envfile.replace('.txt',
                                                     f'_{str(subpop_id).zfill(3)}.txt')  # use three digit ID for file sorting
-            
+
             X_new.to_csv(lfmm_envfile_new, sep='\t', index=False, header=False)
 
             garden_files[n_traits].append(lfmm_envfile_new)
