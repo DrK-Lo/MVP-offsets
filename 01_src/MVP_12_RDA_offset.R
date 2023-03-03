@@ -521,20 +521,20 @@ create_garden_data <- function(garden_climates, subset, subpopID, ntraits){
 
 
 get_garden_num <- function(subpopID, garden_climates){
-    #####################################################################################################
+    #----------------------------------------------------------------------------------------------------#
     # Add leading zeros to subpopID
     #
     # garden_climates unused - for compatibility with MVP_climate_outlier_RDA_offset.R :: get_garden_num
-    #####################################################################################################
+    #----------------------------------------------------------------------------------------------------#
     garden_num = sprintf("%03d", as.integer(subpopID))
     return(garden_num)
 }
 
 
 sort_dfs_indices <- function(dfs){
-    #####################################################
+    #----------------------------------------------------#
     # Sort rownames (subpopID) and colums (transplatID).
-    #####################################################
+    #----------------------------------------------------#
     rownames(dfs) = sprintf("%05d", as.integer(rownames(dfs)))  # add leading zero for sorting (should have just done as.numeric)
     dfs = dfs[order(rownames(dfs)), order(colnames(dfs))]  # sort
     rownames(dfs) = as.character(as.integer(rownames(dfs)))  # remove leading zeros from `garden_num` (ie rownames)
