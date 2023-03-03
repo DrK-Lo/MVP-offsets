@@ -22,32 +22,6 @@ import MVP_02_fit_gradient_forests as mvp02
 import MVP_summary_functions as mvp
 
 
-def create_new_envfiles():
-    print(ColorText('\nCreating climate outlier environmental files').bold().custom('gold'))
-    # read in arbitrary env file for correct formatting
-    arbitrary_file = fs(op.join(outerdir, 'gradient_forests/fitting/garden_files'), pattern='_envfile_GFready_pooled_1.txt')[0]
-    blank_env = pd.read_table(arbitrary_file, index_col=0)
-
-    for col in blank_env.columns:
-        assert luni(blank_env[col]) == 1
-
-    new_envfiles = []
-    for newval in pbar(new_envs):
-        df = blank_env.copy()
-        df['sal_opt'] = -newval  # new envs are in top left of landscape (negative sal_opt, positive temp_opt)
-        df['temp_opt'] = newval
-
-        file = op.join(garden_dir, f'envfile_GF_ready_pooled_envval_{newval}.txt')
-
-        df.to_csv(file, sep='\t', index=True)
-
-#         print(file)
-
-        new_envfiles.append(file)
-
-    return new_envfiles
-
-
 def set_up_fitting_cmds(new_envfiles, num_expected=225):
     """
     
@@ -117,7 +91,7 @@ def create_shfiles(cmd_files):
     for cmd_file in cmd_files:
         num = op.basename(cmd_file).split("_")[-1].rstrip('.pkl')
 
-        job = f'outlier_fitting_{num}'
+        job = f'{run}_outlier_fitting_{num}'
 
         shfile = op.join(shdir, f'{job}.sh')
 
@@ -151,7 +125,8 @@ python MVP_climate_outlier_GF_fitting.py {cmd_file}
 
 def main():
 
-    new_envfiles = create_new_envfiles()
+#     new_envfiles = create_new_envfiles()
+    new_envfiles = fs(op.join(op.dirname(outlier_outerdir), 'garden_files'), endswith='.txt')
     
     cmd_files = set_up_fitting_cmds(new_envfiles)
     
@@ -189,19 +164,20 @@ def main():
 if __name__ == '__main__':
     thisfile, outerdir, outlier_outerdir = sys.argv
     
+    assert op.basename(outerdir) == op.basename(outlier_outerdir)
+    
     # timer
     t1 = dt.now()
+    
+    run = op.basename(outerdir)
 
     # make some dirs
     preddir = op.join(outerdir, 'gradient_forests/training/training_outfiles')
-    garden_dir = makedir(op.join(outlier_outerdir, 'GF/garden_files'))
+#     garden_dir = op.join(op.dirname(outlier_outerdir), 'garden_files')
     fitting_outdir = makedir(op.join(outlier_outerdir, 'GF/fitting_outfiles'))
     cmd_dir = makedir(op.join(outlier_outerdir, 'GF/cmd_pkls'))
     shdir = makedir(op.join(outlier_outerdir, 'GF/fitting_shfiles'))
     out_dir = makedir(op.join(outlier_outerdir, 'GF/fitting_outfiles'))
-
-    # environmental values for temp (sal = temp * -1)
-    new_envs = [1.1, 1.25, 1.5, 2.0, 4.0, 6.0, 8.0, 10.0]
     
 #     # create symlink necessary for MVP_climate_outlier_GF_fitting.py - i think the rda climate outlier needs link
 #     src = op.join(outerdir, 'gradient_forests/training/training_files')
