@@ -100,6 +100,10 @@ factor_names = {  # used in eg anova models to convert column name to human-read
 
 ytick_labels = [i/100 for i in range(-100, 66, 20)][::-1]
 
+# climate outlier scenarios for temp (sal = temp * -1)
+new_envs = [0, 1.10, 1.50, 1.75, 2.00, 2.25, 2.50, 2.75, 3.00, 3.25, 3.50, 3.75]
+
+slimdir = '/work/lotterhos/MVP-NonClinalAF/sim_output_20220428'
 
 
 # FUNCTIONS
@@ -292,7 +296,7 @@ def get_bcs_data(level_scores, performance='garden_performance'):
     return bcs
 
 
-repdirs = ['/work/lotterhos/MVP-Offsets/run_20220919_old',
+repdirs = ['/work/lotterhos/MVP-Offsets/run_20220919_0-225',
            '/work/lotterhos/MVP-Offsets/run_20220919_225-450',
            '/work/lotterhos/MVP-Offsets/run_20220919_450-675',
            '/work/lotterhos/MVP-Offsets/run_20220919_675-900',
