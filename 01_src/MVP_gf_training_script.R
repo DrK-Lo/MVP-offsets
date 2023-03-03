@@ -4,7 +4,7 @@
 # Usage
 # -----
 # conda activate gf_env
-# Rscript gradient_training.R snpfile envfile range_file basename save_dir imports_path
+# Rscript gradient_training.R snpfile envfile range_file basename save_dir
 #
 # Notes
 # -----
@@ -24,7 +24,6 @@
 #    - see eg yeaman03:/notebooks/007_JP_gea/07_gradient_forest/01_prep_spatial_envdata.ipynb
 # basename - the basename prefix wanted for saving files in `save_dir`
 # save_dir - the directory where files should be saved
-# imports_path - path to directory with my homebrew R functions - deprecated
 #--------------------------------------------------------------------------------------------------------#
 
 library(data.table)
@@ -101,7 +100,8 @@ prep_envdata <- function(envfile, pops){
 
 #     envs <- c('Elevation', 'AHM', 'CMD', 'DD5', 'DD_0', 'EMT', 'EXT', 'Eref', 'FFP', 'MAP', 'MAT', 'MCMT', 'MSP', 'MWMT',
 #               'NFFD', 'PAS', 'SHM', 'TD', 'bFFP', 'eFFP')
-    envs <- c('sal_opt', 'temp_opt')  # change for lotterhos slim work
+#     envs <- c('sal_opt', 'temp_opt')  # change for lotterhos slim work
+    envs <- colnames(envdata)  # changing to allow complex sim envs
 
     stopifnot(all(envs %in% colnames(envdata)))
     cat(sprintf('There are %s environmental attributes in the envdata table.', len(envs)))
