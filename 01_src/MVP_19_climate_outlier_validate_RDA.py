@@ -1,5 +1,17 @@
-"""
+"""Validate climate outlier offset predictions for RDA.
 
+Usage
+-----
+conda activate mvp_env
+python MVP_19_climate_outlier_validate_RDA.py outerdir outlier_outerdir
+
+Parameters
+----------
+outerdir - path
+    - the path to the --outdir argument given to 00_start_pipeline.py; eg /path/to/run_20220919_225-450
+outlier_outerdir - path
+    - the directory where climate outlier files and results are to be saved (similar to outerdir)
+    - eg /path/to/climate_outlier/run_20220919_225-450
 """
 from pythonimports import *
 
@@ -104,12 +116,11 @@ def validate(offset_dfs, fitness):
     for args, offset in unwrap_dictionary(offset_dfs, progress_bar=True):
         seed, ind_or_pooled, use_RDA_outliers, ntraits, structcorr = args
         
-        for outlier_val in fitness[seed].index:
-            score_dict = offset.corrwith(fitness[seed],
-                                         axis=1,
-                                         method='kendall').to_dict()  # key = outlier_val, val = correlation
-            
-            validation_dict[seed][ind_or_pooled][use_RDA_outliers][ntraits][structcorr] = score_dict
+        score_dict = offset.corrwith(fitness[seed],
+                                     axis=1,
+                                     method='kendall').to_dict()  # key = outlier_val, val = correlation
+
+        validation_dict[seed][ind_or_pooled][use_RDA_outliers][ntraits][structcorr] = score_dict
 
     # create a dataframe that seaborn can easily use
     validation = pd.DataFrame(
