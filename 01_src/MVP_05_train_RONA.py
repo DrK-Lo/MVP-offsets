@@ -156,7 +156,7 @@ def get_rona_elements(freqs):
     return elements
 
 
-def scatter_rona_elements(freqfile):
+def scatter_rona_elements(freqfile, lview, dview):
     """Parallelize calculation of RONA by determinging typical summation for each locus before summing."""
     print(
         ColorText(
@@ -257,7 +257,7 @@ def main():
 
     # calculate the locus-level element of the RONA equation
     dview['calc_rona_elements'] = calc_rona_elements  # load function to engines
-    rona_elements = scatter_rona_elements(freqfile)
+    rona_elements = scatter_rona_elements(freqfile, lview, dview)
 
     # calculate RONA according to equation from Rellstab et al. 2016
     print(ColorText('\nCalculating RONA for each common garden ...').bold().custom('gold'))
