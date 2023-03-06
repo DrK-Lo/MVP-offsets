@@ -113,7 +113,7 @@ conda activate mvp_env
 
 python MVP_climate_outlier_GF_fitting.py {cmd_file}
 
-    '''
+'''
 
         with open(shfile, 'w') as o:
             o.write(text)
@@ -125,7 +125,6 @@ python MVP_climate_outlier_GF_fitting.py {cmd_file}
 
 def main():
 
-#     new_envfiles = create_new_envfiles()
     new_envfiles = fs(op.join(op.dirname(outlier_outerdir), 'garden_files'), endswith='.txt')
     
     cmd_files = set_up_fitting_cmds(new_envfiles)
