@@ -411,7 +411,7 @@ def main():
     print(ColorText('\nGetting population data ...').bold().custom('gold'))
     fitness = mvp06.load_pooled_fitness_matrix(slimdir, seed)
     
-    # get the subset of simulated individuals and population data
+    # get a list of subsampled individuals, their info, population locations for each subpopID, and climate optima
     subset, locations, envdata = mvp06.get_pop_data(slimdir, seed)
     
     # calculate correlation between fitness and offset within and across gardens
