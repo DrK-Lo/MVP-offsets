@@ -575,7 +575,7 @@ def main():
     # get fitness matrix for pops
     fitness = load_pooled_fitness_matrix(slimdir, seed)
 
-    # get a list of subsampled individuals, map samp top subpopID, and get population locations for each subpopID
+    # get a list of subsampled individuals, their info, population locations for each subpopID, and climate optima
     subset, locations, envdata = get_pop_data(slimdir, seed)
 
     # map subpopID to list of samps - key = subpopID val = list of individual sample names
