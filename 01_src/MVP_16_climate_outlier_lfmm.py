@@ -101,7 +101,7 @@ def create_shfiles(args):
 
             job = f'{run}_climate_outlier_batch_{batch_num}'
 
-            batch_file = op.join(indir, f'{job}.txt')
+            batch_file = op.join(new_indir, f'{job}.txt')
             with open(batch_file, 'w') as o:
                 o.write('\n'.join(batch_cmds))
 
@@ -159,7 +159,21 @@ def main():
     create_watcherfile(pids,
                        directory=new_shdir,
                        end_alert=True,
-                       watcher_name=f'{op.basename(outlier_outerdir)}_lfmm_outlier_watcher')
+                       watcher_name=f'{run}_lfmm_outlier_watcher',
+                       time='1:00:00',
+                       ntasks=1,
+                       mem='4000',
+                       added_text = '\n'.join(['',
+                                               'source $HOME/.bashrc',
+                                               '',
+                                               'conda activate mvp_env',
+                                               '',
+                                               'cd $HOME/code/MVP-offsets/01_src',
+                                               ''
+                                               f'python MVP_17_climate_outlier_validate_lfmm.py {outerdir} {outlier_outerdir}'
+                                               ''
+                                              ])                      
+                      )
 
     # done
     print(ColorText(f'\ntime to complete: {formatclock(dt.now() - t1, exact=True)}'))
@@ -173,6 +187,8 @@ if __name__ == '__main__':
     thisfile, outerdir, outlier_outerdir = sys.argv
     
     assert op.basename(outerdir) == op.basename(outlier_outerdir)
+    
+    run = op.basename(outerdir)
                        
     # timer
     t1 = dt.now()
