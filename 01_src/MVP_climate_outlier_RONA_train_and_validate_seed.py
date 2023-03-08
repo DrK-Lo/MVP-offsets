@@ -125,8 +125,8 @@ if __name__ == '__main__':
     mvp05.rona_training_dir = op.join(outerdir, 'RONA/training/training_files')
     mvp05.seed = seed
 
-#     lview, dview, cluster_id = start_engines(n=36, profile=f'climate_outlier_{run}_RONA')
-    lview, dview = get_client(cluster_id='1678128757-4zyr', profile='lotterhos')
+    lview, dview, cluster_id = start_engines(n=36, profile=f'climate_outlier_{run}_RONA')
+#     lview, dview = get_client(cluster_id='1678128757-4zyr', profile='lotterhos')
 
     dview['calc_rona_elements'] = calc_rona_elements
     dview['get_rona_elements'] = get_rona_elements
