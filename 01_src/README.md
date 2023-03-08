@@ -37,8 +37,8 @@ export PYTHONPATH="${PYTHONPATH}:/path/to/pythonimports"
      -  `install.packages(rgeos)`
      -  `install.packages(raster)`
 
-**3. LFMM2/LEA environment**
-  - this R (v4.0.3) environment is used to run lfmm2 from the LEA2 package
+**3. LFMM2/LEA + RDA environment**
+  - this R (v4.0.3) environment is used to run lfmm2 from the LEA2 package, as well as redundancy analysis (RDA)
   - to retrieve the .yml file clone the [MVP-NonClinalAF repository](https://github.com/ModelValidationProgram/MVP-NonClinalAF/blob/main/src/env/MVP_env_R4.0.3.yml)
   - create this environment with the following command (updating path): `conda create -n lea_env -f /path/to/MVP-NonClinalAF/src/env/MVP_env_R4.0.3.yml`
 
