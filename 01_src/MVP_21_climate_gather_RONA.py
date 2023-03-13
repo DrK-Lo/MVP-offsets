@@ -27,7 +27,7 @@ def main():
 
     all_seeds = pd.concat(dfs)
 
-    allseeds_file = op.join(validation_dir, 'RONA_climate_outlier_validation_scores.txt')
+    allseeds_file = op.join(validation_dir, 'climate_outlier_validation_scores.txt')
     all_seeds.to_csv(allseeds_file, sep='\t', index=False)
 
     print(f'\tsaved to: {allseeds_file}')
