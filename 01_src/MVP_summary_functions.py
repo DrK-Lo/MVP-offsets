@@ -19,14 +19,14 @@ boxplot_kwargs = {  # kwargs for seaborn.catplot (boxplot) properties
                  'N-variable' : '#2b7bba',
                  'N-cline-center-to-edge' : '#539ecd',
                  'N-cline-N-to-S' : '#89bedc',
-                 'm-constant' : '#572c92',       # matplotlib.colors.rgb2hex(sns.color_palette('Purples_r')[0])
-                 'm-variable' : '#705eaa',       # matplotlib.colors.rgb2hex(sns.color_palette('Purples_r')[1])
-                 'm-breaks' : '#8d89c0',         # matplotlib.colors.rgb2hex(sns.color_palette('Purples_r')[2])
-                 'all causal' : '#05712f',       # matplotlib.colors.rgb2hex(sns.color_palette('Greens_r')[0])
-                 'one noncausal' : '#56b567',    # matplotlib.colors.rgb2hex(sns.color_palette('Greens_r')[2])
-                 'no noncausal' : '#bce4b5',     # matplotlib.colors.rgb2hex(sns.color_palette('Greens_r')[4])
-                 'oligogenic' : '#aa1016',       # matplotlib.colors.rgb2hex(sns.color_palette('Reds_r')[0])
-                 'mod-polygenic' : '#f44f39',    # matplotlib.colors.rgb2hex(sns.color_palette('Reds_r')[2])
+                 'm-constant' : '#572c92',        # matplotlib.colors.rgb2hex(sns.color_palette('Purples_r')[0])
+                 'm-variable' : '#705eaa',        # matplotlib.colors.rgb2hex(sns.color_palette('Purples_r')[1])
+                 'm-breaks' : '#8d89c0',          # matplotlib.colors.rgb2hex(sns.color_palette('Purples_r')[2])
+                 'all causal' : '#05712f',        # matplotlib.colors.rgb2hex(sns.color_palette('Greens_r')[0])
+                 'one noncausal' : '#56b567',     # matplotlib.colors.rgb2hex(sns.color_palette('Greens_r')[2])
+                 'no noncausal' : '#bce4b5',      # matplotlib.colors.rgb2hex(sns.color_palette('Greens_r')[4])
+                 'oligogenic' : '#aa1016',        # matplotlib.colors.rgb2hex(sns.color_palette('Reds_r')[0])
+                 'mod-polygenic' : '#f44f39',     # matplotlib.colors.rgb2hex(sns.color_palette('Reds_r')[2])
                  'highly-polygenic' : '#fcaf93',  # matplotlib.colors.rgb2hex(sns.color_palette('Reds_r')[4])
                  'RONA' : sns.color_palette("Paired")[1],
                  'RONA-sal_opt' : 'k',
@@ -36,7 +36,10 @@ boxplot_kwargs = {  # kwargs for seaborn.catplot (boxplot) properties
                  'rda' : sns.color_palette("viridis")[-1],
                  'adaptive' : sns.color_palette('magma', n_colors=11)[-5],
                  'all' : sns.color_palette('magma', n_colors=11)[-3],
-                 'neutral' : sns.color_palette('magma', n_colors=11)[-1]
+                 'neutral' : sns.color_palette('magma', n_colors=11)[-1],
+                 'northwest' : (0.38407269378943537, 0.46139018782416635, 0.7309466543290268),
+                 'rangecenter' : (0.18488035509396164, 0.07942573027972388, 0.21307651648984993),
+                 'southeast' : (0.6980608153581771, 0.3382897632604862, 0.3220747885521809),
                 },
     
     'whiskerprops' : {'color' : '#bebebe'},
@@ -104,6 +107,13 @@ ytick_labels = [i/100 for i in range(-100, 66, 20)][::-1]
 new_envs = [0, 1.10, 1.50, 1.75, 2.00, 2.25, 2.50, 2.75, 3.00, 3.25, 3.50, 3.75]
 
 slimdir = '/work/lotterhos/MVP-NonClinalAF/sim_output_20220428'
+
+# for validating climate outlier scenarios
+block_pops = {
+    'northwest': [91, 92, 93, 81, 82, 83, 71, 72, 73],
+    'rangecenter': [54, 55, 56, 44, 45, 46, 34, 35, 36],
+    'southeast': [28, 29, 30, 18, 19, 20, 8, 9, 10]
+}
 
 
 # FUNCTIONS
@@ -301,7 +311,7 @@ repdirs = ['/work/lotterhos/MVP-Offsets/run_20220919_0-225',
            '/work/lotterhos/MVP-Offsets/run_20220919_450-675',
            '/work/lotterhos/MVP-Offsets/run_20220919_675-900',
            '/work/lotterhos/MVP-Offsets/run_20220919_900-1125',
-#            '/work/lotterhos/MVP-Offsets/run_20220919_1125-1350',  # not done yet
+           '/work/lotterhos/MVP-Offsets/run_20220919_1125-1350',
           ]
 
 def combine_level_dicts(use_bcs_data=True, display_df=False, performance='garden_performance'):
@@ -318,7 +328,7 @@ def combine_level_dicts(use_bcs_data=True, display_df=False, performance='garden
     for repdir in pbar(repdirs, desc=f'reading reps ({use_bcs_data = }, {performance = })'):
         rep = op.basename(repdir).split('_')[-1]
 
-        if rep == '20220919_old' :
+        if rep == '20220919_old' :  # no longer used/needed
             rep = '0-225'
 
         pkl = op.join(repdir, 'summaries/all_performance_dicts/level_scores.pkl')
