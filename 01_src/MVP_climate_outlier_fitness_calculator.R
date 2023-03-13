@@ -1,4 +1,4 @@
-#####################################################################################
+#-----------------------------------------------------------------------------------#
 # Calculate fitness for all populations to a garden environment with temp optimimum 
 #        `opt1` and env2 optimum `opt0`.
 #
@@ -18,7 +18,7 @@
 # opt1 - temperature optimum for the common garden
 # opt2 - (optional) evn2 optimum for the common garden
 # 
-#####################################################################################
+#-----------------------------------------------------------------------------------#
 library('mvtnorm')
 library(progress)
 len = length
