@@ -24,7 +24,6 @@ import MVP_summary_functions as mvp
 
 def set_up_fitting_cmds(new_envfiles, num_expected=225):
     """
-    
     Parameters
     ----------
     num_expected int
@@ -33,10 +32,9 @@ def set_up_fitting_cmds(new_envfiles, num_expected=225):
     """
     print(ColorText('\nSetting up fitting commands ...').bold().custom('gold'))
     predfiles = fs(preddir, pattern = '_pooled_', endswith='predOut.RDS')
-    
+
     assert len(predfiles) / 3 == num_expected
 
-    
     # set up fitting commands as in MVP_02_fitting
     basenames = []
     cmd_args = []
@@ -62,11 +60,15 @@ def set_up_fitting_cmds(new_envfiles, num_expected=225):
 
             basenames.append(basename)
 
-            args = (trainingfile,
-                    garden_file,
-                    predfile,
-                    basename,
-                    out_dir)
+            args = (
+                rscript_exe,
+                fitting_file,
+                trainingfile,
+                garden_file,
+                predfile,
+                basename,
+                out_dir
+            )
 
             cmd_args.append(args)
             all_args.append(args)
@@ -80,9 +82,7 @@ def set_up_fitting_cmds(new_envfiles, num_expected=225):
                 cmd_args = []
 
                 cmd_files.append(cmd_file)
-#                 print(cmd_file)
-    
-    
+
     return cmd_files
 
 
@@ -119,25 +119,25 @@ python MVP_climate_outlier_GF_fitting.py {cmd_file}
             o.write(text)
 
         shfiles.append(shfile)
-    
+
     return shfiles
 
 
 def main():
 
     new_envfiles = fs(op.join(op.dirname(outlier_outerdir), 'garden_files'), endswith='.txt')
-    
+
     cmd_files = set_up_fitting_cmds(new_envfiles)
-    
+
     shfiles = create_shfiles(cmd_files)
-    
+
     pids = sbatch(shfiles)
-    
+
     create_watcherfile(pids,
                        directory=shdir,
                        watcher_name=f'{op.basename(outlier_outerdir)}_GF_outlier_watcher',
                        end_alert=True,
-                       time='1:00:00',
+                       time='6:00:00',
                        ntasks=1,
                        mem='4000',
                        rem_flags=['#SBATCH --nodes=1', '#SBATCH --cpus-per-task=36'],
@@ -152,22 +152,22 @@ def main():
                                                ''
                                               ])
                       )
-    
+
     # done
     print(ColorText(f'\ntime to complete: {formatclock(dt.now() - t1, exact=True)}'))
     print(ColorText('\nDONE!!').bold().green(), '\n')
-    
+
     pass
 
 
 if __name__ == '__main__':
     thisfile, outerdir, outlier_outerdir = sys.argv
-    
+
     assert op.basename(outerdir) == op.basename(outlier_outerdir)
-    
+
     # timer
     t1 = dt.now()
-    
+
     run = op.basename(outerdir)
 
     # make some dirs
@@ -177,20 +177,13 @@ if __name__ == '__main__':
     cmd_dir = makedir(op.join(outlier_outerdir, 'GF/cmd_pkls'))
     shdir = makedir(op.join(outlier_outerdir, 'GF/fitting_shfiles'))
     out_dir = makedir(op.join(outlier_outerdir, 'GF/fitting_outfiles'))
-    
-#     # create symlink necessary for MVP_climate_outlier_GF_fitting.py - i think the rda climate outlier needs link
-#     src = op.join(outerdir, 'gradient_forests/training/training_files')
-#     outlier_training_dir = makedir(op.join(outlier_outerdir, 'gradient_forests/training'))
-#     dst = op.join(outlier_trainging_dir, 'training_files')
-#     if not op.exists(dst):
-#         os.symlink(src, dst)
-    
+
+    rscript_exe = '/home/b.lind/anaconda3/envs/r35/lib/R/bin/Rscript'    
+    fitting_file = op.join(op.dirname(thisfile), 'MVP_gf_fitting_script.R')
+
     # print versions of packages and environment
     print(ColorText('\nEnvironment info :').bold().custom('gold'))
     mvp.latest_commit()
     session_info.show(html=False, dependencies=True)
-    
-    
-    
+
     main()
-    
