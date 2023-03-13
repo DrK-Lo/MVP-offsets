@@ -129,20 +129,22 @@ standardize_envdata = function(envdata, ntraits=2){
     # this is necessary because of the names within the RDA objects
     #    - will need to make sure any pooled RDAs takes this into account
     #-----------------------------------------------------------------------#
-    cnames = c()
-    for (env in colnames(envdata)){
-        if (env == 'temp_opt'){
-            env = 'temp'
-        } else {
-            stopifnot(env == 'sal_opt')
-            env = 'sal'
+    if (ntraits == 2){
+        cnames = c()
+        for (env in colnames(envdata)){
+            if (env == 'temp_opt'){
+                env = 'temp'
+            } else {
+                stopifnot(env == 'sal_opt')
+                env = 'sal'
+            }
+            cnames = append(cnames, env)
         }
-        cnames = append(cnames, env)
+        colnames(envdata) = cnames
     }
-    colnames(envdata) = cnames
     
     if (ntraits == 1){
-        envdata = data.frame(temp=envdata[ , 'temp'],
+        envdata = data.frame(temp=envdata[ , 'temp_opt'],
                              row.names=rownames(envdata))
     }
     
@@ -259,7 +261,7 @@ train_outlier_rda = function(outlier_snps, rda, env_pres, ntraits=2){
             # get RDA
             if (ntraits == 1){  # use only the adaptive trait (temp)
                 outlier_rda = rda(outlier_snps ~ temp + Condition(PC1 + PC2), Variables)
-                
+
             } else {  # use both traits (sal + temp)
                 outlier_rda = rda(outlier_snps ~ sal + temp + Condition(PC1 + PC2), Variables)
             }
@@ -271,12 +273,11 @@ train_outlier_rda = function(outlier_snps, rda, env_pres, ntraits=2){
             # get RDA
             if (ntraits == 1){  # use only the adaptive trait (temp)
                 outlier_rda = rda(outlier_snps ~ temp, Variables)
-                
+
             } else {  # use both traits (sal + temp)
                 outlier_rda = rda(outlier_snps ~ sal + temp, Variables)
             }
         }
-
     }
 
     return(outlier_rda)
@@ -504,7 +505,13 @@ create_garden_data <- function(garden_climates, subset, subpopID, ntraits){
     }
 
     # overwrite climate data for all inds or pops with the garden climate
-    for (env in c('temp_opt', 'sal_opt')){
+    if (ntraits <= 2){
+        envs = c('temp_opt', 'sal_opt')
+    } else {
+        envs = c('env1_mat', 'env2_MTWetQ', 'env3_MTDQ', 'env4_PDM', 'env5_PwarmQ', 'env6_PWM')
+    }
+    
+    for (env in envs){
         garden_data[, env] = garden_climates[subpopID, env]
     }
 
