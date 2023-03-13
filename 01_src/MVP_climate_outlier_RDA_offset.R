@@ -37,8 +37,8 @@
 # mvp_dir
 #     - /path/to/MVP-Offsets/01_src (ie the directory with this script in it) 
 #
-# Notes
-# -----
+# Dependencies
+# ------------
 # MVP_14_climate_outlier_fit_GF.py must be run prior to this script
 #
 #-----------------------------------------------------------------------------------------------------------------#
