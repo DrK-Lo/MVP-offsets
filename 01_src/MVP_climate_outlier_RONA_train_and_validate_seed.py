@@ -32,18 +32,40 @@ calc_rona_elements.__module__ = '__main__'
 
 
 def validate(seed, fitness, marker_sets=['all', 'adaptive', 'neutral']):
+    """Validate offset predictions by correlating with fitness for all pops, or blocks of populations.
+
+    Parameters
+    ----------
+    seed - simulation seed (for finding files)
+    fitness - dataframe for fitness of column pop in row environment
+    
+    Notes
+    -----
+    - blocks are each 9 pops; in northwest, range center, and southeast
+    """
     print(ColorText('\nValidating RONA predictions ...').bold().custom('gold'))
-    validation = pd.DataFrame(columns=['seed', 'marker_set', 'program', 'outlier_clim', 'score'])
+
+    validation = pd.DataFrame(columns=['seed', 'marker_set', 'program', 'outlier_clim', 'score', 'block', 'env'])
     for marker_set in pbar(marker_sets):
         rona = pklload(op.join(new_rona_outdir, f'{seed}_{marker_set}_RONA_results.pkl'))
 
         for env, rona_dict in rona.items():
             rona_offset = pd.DataFrame(rona_dict).T
 
-            scores = rona_offset.corrwith(fitness, axis=1, method='kendall')
+            # validate using all populations
+            score_dict = rona_offset.corrwith(fitness, axis=1, method='kendall')
 
-            for outlier_clim, score in scores.items():
-                validation.loc[nrow(validation), : ] = (seed, marker_set, 'RONA', outlier_clim, score)
+            for outlier_clim, score in score_dict.items():
+                validation.loc[nrow(validation), : ] = (seed, marker_set, 'RONA', outlier_clim, score, 'all', env)
+             
+            # validate with blocks of populations to see effect of climate distance
+            for block, pops in mvp.block_pops.items():
+                score_dict = rona_offset[pops].corrwith(fitness[pops],
+                                                        axis=1,
+                                                        method='kendall').to_dict()  # key = outlier_clim, val = correlation
+                
+                for outlier_clim, score in score_dict.items():
+                    validation.loc[nrow(validation), :] = seed, marker_set, 'RONA', outlier_clim, score, block, env
             
     return validation
 
