@@ -38,7 +38,7 @@ def main():
     for args in cmd_args:
         jobs.append(
             lview.apply_async(
-                mvp02.fit_gradient_forests, *((rscript_exe, fitting_file) + args)
+                mvp02.fit_gradient_forests, *args  # *((rscript_exe, fitting_file) + args)
             )
         )
 
@@ -67,12 +67,12 @@ if __name__ == '__main__':
     mvp02.lview = lview
     
     # load objects to cluster
-    rscript_exe = '/home/b.lind/anaconda3/envs/r35/lib/R/bin/Rscript'
-    mvp02.rscript_exe = rscript_exe
-    dview['rscript_exe'] = rscript_exe
+#     rscript_exe = '/home/b.lind/anaconda3/envs/r35/lib/R/bin/Rscript'
+#     mvp02.rscript_exe = rscript_exe
+#     dview['rscript_exe'] = rscript_exe
     
-    fitting_file = op.join(op.dirname(thisfile), 'MVP_gf_fitting_script.R')
-    mvp02.fitting_file = fitting_file
-    dview['fitting_file'] = fitting_file
+#     fitting_file = op.join(op.dirname(thisfile), 'MVP_gf_fitting_script.R')
+#     mvp02.fitting_file = fitting_file
+#     dview['fitting_file'] = fitting_file
 
     main()
