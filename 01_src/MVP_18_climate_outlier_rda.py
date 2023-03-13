@@ -22,6 +22,7 @@ import MVP_summary_functions as mvp
 def create_commands():
     """Use previously created RDA commands and update script and args, save to new files."""
     print(ColorText('\nCreating new RDA commands ...').bold().custom('gold'))
+    
     rda_cmd_files = fs(cmd_dir, endswith='rda_commands.txt')
     assert len(rda_cmd_files) == 225
 
