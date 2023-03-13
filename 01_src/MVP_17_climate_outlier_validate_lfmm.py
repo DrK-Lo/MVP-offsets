@@ -69,7 +69,7 @@ def read_lfmm_offset_dfs(outfiles):
 
                 df = pd.concat(offset_cols, axis=1).T
                 df.columns = df.columns.astype(int)
-                df.index = df.index.astype(str)
+                df.index = df.index.astype(float).astype(str)
                 offset_dfs[seed][marker_set][ntraits] = df
 
     # save offsets
@@ -81,18 +81,37 @@ def read_lfmm_offset_dfs(outfiles):
 
 
 def validate(offset_dfs, fitness):
-    """Calculate correlation between offset and fitness and store in dataframe that seaborn can easily use."""
+    """Validate offset predictions by correlating with fitness for all pops, or blocks of populations.
+
+    Parameters
+    ----------
+    offset_dfs - nested dictionary with final values dataframes
+    fitness - dict, with key = seed and val = dataframe for fitness of column pop in row environment
+    
+    Notes
+    -----
+    - blocks are each 9 pops; in northwest, range center, and southeast
+    """
     print(ColorText('\nValidating offset predictions ...').bold().custom('gold'))
     
-    validation = pd.DataFrame(columns=['seed', 'marker_set', 'ntraits', 'program', 'outlier_clim', 'score'])
+    validation = pd.DataFrame(columns=['seed', 'marker_set', 'ntraits', 'program', 'outlier_clim', 'score', 'block'])
     for (seed, marker_set, ntraits), offset in unwrap_dictionary(offset_dfs, progress_bar=True):
-
+        # validate using all populations
         score_dict = offset.corrwith(fitness[seed],
                                      axis=1,
-                                     method='kendall').to_dict()  # key = outlier_val, val = correlation
+                                     method='kendall').to_dict()  # key = outlier_clim, val = correlation
 
         for outlier_clim, score in score_dict.items():
-            validation.loc[nrow(validation), :] = seed, marker_set, ntraits, 'lfmm2', outlier_clim, score
+            validation.loc[nrow(validation), :] = seed, marker_set, ntraits, 'lfmm2', outlier_clim, score, 'all'
+        
+        # validate with blocks of populations to see effect of climate distance
+        for block, pops in mvp.block_pops.items():
+            score_dict = offset[pops].corrwith(fitness[seed][pops],
+                                               axis=1,
+                                               method='kendall').to_dict()  # key = outlier_clim, val = correlation
+            
+            for outlier_clim, score in score_dict.items():
+                validation.loc[nrow(validation), :] = seed, marker_set, ntraits, 'lfmm2', outlier_clim, score, block
 
     # add simulation level info to the dataframe
     validation = mvp15.annotate_seeds(validation)
@@ -100,6 +119,8 @@ def validate(offset_dfs, fitness):
     # save
     f = op.join(validation_dir, 'climate_outlier_validation_scores.txt')
     validation.to_csv(f, sep='\t', index=False, header=True)
+    
+    print(f'\twrote validation to: {f}')
 
     pass
 
