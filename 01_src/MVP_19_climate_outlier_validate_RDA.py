@@ -77,12 +77,11 @@ def read_file(f):
 def read_offset_dfs(all_files):
     print(ColorText('\nReading in offset dfs ...').bold().custom('gold'))
     offset_files = fs(offset_dir, endswith='.txt', exclude='_ind_')
-    
+
     assert len(offset_files) == len(all_files)
-    
+
     jobs = []
     for f in offset_files:
-
         jobs.append(
             lview.apply_async(
                 read_file, f
@@ -90,7 +89,7 @@ def read_offset_dfs(all_files):
         )
 
     watch_async(jobs)
-    
+
     offset_dfs = wrap_defaultdict(dict, 4)
     all_args = []
     for i, j in enumerate(pbar(jobs)):
@@ -104,36 +103,59 @@ def read_offset_dfs(all_files):
         offset_dfs[seed][ind_or_pooled][use_RDA_outliers][ntraits][structcorr] = j.r
 
     assert len(jobs) == luni(all_args)
-    
+
     return offset_dfs
 
 
 def validate(offset_dfs, fitness):
+    """Validate offset predictions by correlating with fitness for all pops, or blocks of populations.
+
+    Parameters
+    ----------
+    offset_dfs - nested dictionary with final values dataframes
+    fitness - dict, with key = seed and val = dataframe for fitness of column pop in row environment
+    
+    Notes
+    -----
+    - blocks are each 9 pops; in northwest, range center, and southeast
+    """
     print(ColorText('\nValidating results ...').bold().custom('gold'))
-
-    # calculate correlation between offset and fitness
-    validation_dict = wrap_defaultdict(dict, 4)
-    for args, offset in unwrap_dictionary(offset_dfs, progress_bar=True):
-        seed, ind_or_pooled, use_RDA_outliers, ntraits, structcorr = args
-        
-        score_dict = offset.corrwith(fitness[seed],
-                                     axis=1,
-                                     method='kendall').to_dict()  # key = outlier_val, val = correlation
-
-        validation_dict[seed][ind_or_pooled][use_RDA_outliers][ntraits][structcorr] = score_dict
 
     # create a dataframe that seaborn can easily use
     validation = pd.DataFrame(
-        columns=['seed', 'ind_or_pooled', 'use_RDA_outliers', 'ntraits', 'structcorr', 'outlier_val', 'score']
+        columns=['seed', 'ind_or_pooled', 'use_RDA_outliers', 'ntraits', 'structcorr', 'outlier_clim', 'score', 'block']
     )
+    
+    # calculate correlation between offset and fitness, fill in validation dataframe
+    for args, offset in unwrap_dictionary(offset_dfs, progress_bar=True):
+        seed, ind_or_pooled, use_RDA_outliers, ntraits, structcorr = args  # FYI
+        
+        # validate using all populations
+        score_dict = offset.corrwith(fitness[seed],
+                                     axis=1,
+                                     method='kendall').to_dict()  # key = outlier_clim, val = correlation
 
-    for args, score in unwrap_dictionary(validation_dict):
-        validation.loc[nrow(validation), : ] = *args, score
+        for outlier_clim, score in score_dict.items():
+            validation.loc[nrow(validation), : ] = (*args, outlier_clim, score, 'all')
 
+        # validate with blocks of populations to see effect of climate distance
+        for block, pops in mvp.block_pops.items():
+            score_dict = offset[pops].corrwith(fitness[seed][pops],
+                                               axis=1,
+                                               method='kendall').to_dict()  # key = outlier_clim, val = correlation
+            
+            for outlier_clim, score in score_dict.items():
+                validation.loc[nrow(validation), :] = (*args, outlier_clim, score, block)
+        
     # add simulation level info to the dataframe
     validation = mvp15.annotate_seeds(validation)
 
     validation['program'] = 'rda'
+    validation['marker_set'] = validation.use_RDA_outliers.map({'TRUE': 'rda_outliers',
+                                                                'FALSE': 'all',
+                                                                'CAUSAL': 'adaptive',
+                                                                'NEUTRAL': 'neutral'
+                                                               })
 
     # save
     f = op.join(validation_dir, 'climate_outlier_validation_scores.txt')
@@ -153,6 +175,10 @@ def main():
     fitness = mvp15.get_fitness(offset_dfs.keys())
 
     validate(offset_dfs, fitness)
+
+    # done
+    print(ColorText(f'\ntime to complete: {formatclock(dt.now() - t1, exact=True)}'))
+    print(ColorText('\nDONE!!').bold().green(), '\n')
     
     pass
 
