@@ -34,9 +34,12 @@ boxplot_kwargs = {  # kwargs for seaborn.catplot (boxplot) properties
                  'lfmm2' : sns.color_palette("Paired")[-5],
                  'GF' : sns.color_palette("Paired")[9],
                  'rda' : sns.color_palette("viridis")[-1],
+                 'rda-nocorr' : 'darkgreen',
+                 'rda-structcorr' : 'lightgreen',
                  'adaptive' : sns.color_palette('magma', n_colors=11)[-5],
                  'all' : sns.color_palette('magma', n_colors=11)[-3],
                  'neutral' : sns.color_palette('magma', n_colors=11)[-1],
+                 'rda outliers' : 'white',
                  'northwest' : (0.38407269378943537, 0.46139018782416635, 0.7309466543290268),
                  'rangecenter' : (0.18488035509396164, 0.07942573027972388, 0.21307651648984993),
                  'southeast' : (0.6980608153581771, 0.3382897632604862, 0.3220747885521809),
@@ -59,13 +62,16 @@ boxplot_kwargs = {  # kwargs for seaborn.catplot (boxplot) properties
     'capprops' : {'color' : '#bebebe'}
 }
 
+
 markers = {
     'RONA' : 'd',  # diamond
     'RONA-sal_opt' : '<',  # left-facing triangle
     'RONA-temp_opt' : '^',  # upward-facing triangle
     'lfmm2' : 'p',  # pentagon
     'GF' : 'o',  # circle
-    'rda' : 's'  # square
+    'rda' : 's',  # square
+    'rda-nocorr' : 'x',  # x
+    'rda-structcorr' : '+'  # +
 }
 
 
@@ -78,7 +84,7 @@ hue_order = {
     'migration' : ['m-constant', 'm-variable', 'm-breaks'],
     'noncausal_env' : ['all causal', 'one noncausal', 'no noncausal'],
     'marker_set' : ['adaptive', 'all', 'neutral'],
-    'program' : ['RONA', 'RONA-sal_opt', 'RONA-temp_opt', 'lfmm2', 'rda', 'GF']
+    'program' : ['RONA', 'RONA-sal_opt', 'RONA-temp_opt', 'lfmm2', 'rda-nocorr', 'rda-structcorr', 'rda', 'GF']
 }
 
 
@@ -271,6 +277,31 @@ def get_summary_data():
     return df
 
 
+def get_bcs_dataframe(data):
+    data = data[(data['marker_set']=='all') & (data['plevel'] == '2-trait')].copy()
+
+    if 'structcrxn' in data.columns.tolist():  # == 'rda'
+        data = data[(data['structcrxn']!='corr') &  # allows for np.nan in column (don't do this: data['structcrxn']=='nocorr')
+                    (~data['marker_set'].str.contains('outlier'))].copy()  # remove rda outliers (with or without spaces)/plural
+
+    # combine some columns
+#     data['architecture'] = data['glevel'].str.cat(data[['plevel', 'pleio', 'slevel']], sep='_').str.replace(' ', '-')  # any time slevel is NA architecture ends up being NA - I don't think I use it anyway
+    data['plevel_pleio'] = data['plevel'] + '_' + data['pleio']
+    data['demography'] = data['popsize'] + '_' + data['migration']
+    
+    if 'garden' in data.columns.tolist():  # for within-landscape validation
+        data['seed_garden'] = data['garden'].astype(str) + '_' + data['seed'].astype(str)
+
+    # get data that contains level of local adaptation
+    summary = get_summary_data()
+
+    # add LA and proportion of clinal alleles to the bcs data
+    for col in ['final_LA', 'cor_TPR_temp', 'cor_TPR_sal']:
+        data[col] = data.seed.map(summary[col]) 
+    
+    return data
+
+
 def get_bcs_data(level_scores, performance='garden_performance'):
     """Get validation data for 'best case scenario'.
 
@@ -282,26 +313,28 @@ def get_bcs_data(level_scores, performance='garden_performance'):
     for program in level_scores:
         # reduce to bcs
         data = level_scores[program][performance].copy()
-        data = data[(data['marker_set']=='all') & (data['plevel'] == '2-trait')]
-
-        if program == 'rda' :
-            data = data[data['structcrxn']=='nocorr']
-
-        # combine some columns
-        data['architecture'] = data['glevel'].str.cat(data[['plevel', 'pleio', 'slevel']], sep='_').str.replace(' ', '-')
-        data['plevel_pleio'] = data['plevel'] + '_' + data['pleio']
-        data['demography'] = data['popsize'] + '_' + data['migration']
-        data['seed_garden'] = data['garden'].astype(str) + '_' + data['seed'].astype(str)
-
-        bcs[program] = data
         
-    # get data that contains level of local adaptation
-    summary = get_summary_data()
+        bcs[program] = get_bcs_dataframe(data)
+#         data = data[(data['marker_set']=='all') & (data['plevel'] == '2-trait')]
 
-    # add LA and proportion of clinal alleles to the bcs data
-    for df in bcs.values():
-        for col in ['final_LA', 'cor_TPR_temp', 'cor_TPR_sal']:
-            df[col] = df.seed.map(summary[col]) 
+#         if program == 'rda' :
+#             data = data[data['structcrxn']=='nocorr']
+
+#         # combine some columns
+#         data['architecture'] = data['glevel'].str.cat(data[['plevel', 'pleio', 'slevel']], sep='_').str.replace(' ', '-')
+#         data['plevel_pleio'] = data['plevel'] + '_' + data['pleio']
+#         data['demography'] = data['popsize'] + '_' + data['migration']
+#         data['seed_garden'] = data['garden'].astype(str) + '_' + data['seed'].astype(str)
+
+#         bcs[program] = data
+        
+#     # get data that contains level of local adaptation
+#     summary = get_summary_data()
+
+#     # add LA and proportion of clinal alleles to the bcs data
+#     for df in bcs.values():
+#         for col in ['final_LA', 'cor_TPR_temp', 'cor_TPR_sal']:
+#             df[col] = df.seed.map(summary[col]) 
 
     return bcs
 
@@ -312,6 +345,7 @@ repdirs = ['/work/lotterhos/MVP-Offsets/run_20220919_0-225',
            '/work/lotterhos/MVP-Offsets/run_20220919_675-900',
            '/work/lotterhos/MVP-Offsets/run_20220919_900-1125',
            '/work/lotterhos/MVP-Offsets/run_20220919_1125-1350',
+           '/work/lotterhos/MVP-Offsets/run_20220919_1350-1575'
           ]
 
 def combine_level_dicts(use_bcs_data=True, display_df=False, performance='garden_performance'):
@@ -328,8 +362,8 @@ def combine_level_dicts(use_bcs_data=True, display_df=False, performance='garden
     for repdir in pbar(repdirs, desc=f'reading reps ({use_bcs_data = }, {performance = })'):
         rep = op.basename(repdir).split('_')[-1]
 
-        if rep == '20220919_old' :  # no longer used/needed
-            rep = '0-225'
+#         if rep == '20220919_old' :  # no longer used/needed
+#             rep = '0-225'
 
         pkl = op.join(repdir, 'summaries/all_performance_dicts/level_scores.pkl')
 
