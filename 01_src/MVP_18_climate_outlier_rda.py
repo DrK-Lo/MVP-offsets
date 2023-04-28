@@ -169,6 +169,7 @@ if __name__ == '__main__':
     run = op.basename(outerdir)
     
     assert op.basename(outerdir) == op.basename(outlier_outerdir)
+    assert outerdir != outlier_outerdir
 
     # timer
     t1 = dt.now()
