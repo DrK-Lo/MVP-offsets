@@ -4,7 +4,7 @@ Usage
 -----
 conda activate mvp_env
 MVP_00_start_pipeline.py -s SLIMDIR -o OUTDIR -e EMAIL -c CONDADIR 
-                        [--gf] [--rona] [--gdm] [--lfmm] [--all] [-h]
+                        [--gf] [--rona] [--fst] [--lfmm] [--all] [-h]
 
 TODO
 ----
@@ -73,12 +73,12 @@ Whether to run Gradient Forests analysis.''')
                         help='''Boolean: true if used, false otherwise.
 Whether to run Risk Of Non-Adaptedness analysis.''')
 
-    parser.add_argument("--gdm",
+    parser.add_argument("--fst",
                         required=False,
                         action='store_true',
-                        dest='run_gdm',
+                        dest='run_fst',
                         help='''Boolean: true if used, false otherwise.
-Whether to run Generalized Dissimilarity Models.''')
+Whether to run pairwise FST.''')
 
     parser.add_argument("--lfmm",
                         required=False,
@@ -276,7 +276,7 @@ python MVP_10_train_lfmm2_offset.py {seed} {args.slimdir} {args.outdir} {args.em
 
     return lfmm_pids
 
-def execute_gdm(seeds, args, gf_pids=None):
+def execute_fst(seeds, args, gf_pids=None):
     print(ColorText('Creating and sbatching Generalized Dissimilarity Modeling scripts ...').bold().custom('gold'))
 
     shdir = makedir(op.join(args.outdir, 'fst/shfiles'))
@@ -419,7 +419,7 @@ def main():
         args.run_gf = True
         args.run_rona = True
         args.run_lfmm = True
-        args.run_gdm = True
+        args.run_fst = True
         args.run_rda = True
 
     # run gradient forest offset analyses
@@ -438,11 +438,11 @@ def main():
         lfmm_pids = execute_lfmm(seeds, args)
 
     # run generalized dissimimilarity model offset analysis
-    if args.run_gdm is True:
+    if args.run_fst is True:
         if args.run_gf is True:
-            execute_gdm(seeds, args, gf_pids)
+            execute_fst(seeds, args, gf_pids)
         else:
-            execute_gdm(seeds, args)
+            execute_fst(seeds, args)
 
     # run RDA offset
     if args.run_rda is True:
