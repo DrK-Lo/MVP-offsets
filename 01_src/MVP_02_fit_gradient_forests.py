@@ -16,9 +16,8 @@ Parameters
 ----------
 seed
     the seed number of the simulation - used to find associated files
-slimdir
-    the location of the seed's files output by Katie's post-processing scriptstraining_outdir - the location of RDS
-    outfiles from MVP_01_train_gradient_forests.py. The path endswith: gradient_forests/training/training_outfiles
+slimdir (not used)
+    the location of the seed's files output by Katie's post-processing scriptstraining_outdir
 rscript_exe
     path to R environment's Rscript executable - eg ~/anaconda3/envs/gf_env/bin/Rscript
     R environment must be able to `library(gradientforests)`
@@ -62,7 +61,7 @@ def get_envdata():
     """
     print(ColorText('\nGetting environmental data ...').bold().custom('gold'))
     files = fs(training_filedir, pattern='_envfile_', startswith=seed)
-    assert len(files) == 2, files
+    assert len(files) == 2, files  # ind and pooled
 
     envdfs = {}
     envfiles = {}
