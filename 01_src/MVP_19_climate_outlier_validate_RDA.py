@@ -107,7 +107,7 @@ def read_offset_dfs(all_files):
     return offset_dfs
 
 
-def validate(offset_dfs, fitness):
+def validate(offset_dfs, fitness, prefix='climate_outlier'):
     """Validate offset predictions by correlating with fitness for all pops, or blocks of populations.
 
     Parameters
@@ -158,7 +158,7 @@ def validate(offset_dfs, fitness):
                                                                })
 
     # save
-    f = op.join(validation_dir, 'climate_outlier_validation_scores.txt')
+    f = op.join(validation_dir, f'{prefix}_validation_scores.txt')
     validation.to_csv(f, sep='\t', index=False, header=True)
 
     print(f'\nsaved validation scores to : {f}')
@@ -187,6 +187,7 @@ if __name__ ==  '__main__':
     thisfile, outerdir, outlier_outerdir = sys.argv
     
     assert op.basename(outerdir) == op.basename(outlier_outerdir)
+    assert outerdir != outlier_outerdir
 
     # timer
     t1 = dt.now()
