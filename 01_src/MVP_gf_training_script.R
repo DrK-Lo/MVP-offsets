@@ -101,7 +101,7 @@ prep_envdata <- function(envfile, pops){
 #     envs <- c('Elevation', 'AHM', 'CMD', 'DD5', 'DD_0', 'EMT', 'EXT', 'Eref', 'FFP', 'MAP', 'MAT', 'MCMT', 'MSP', 'MWMT',
 #               'NFFD', 'PAS', 'SHM', 'TD', 'bFFP', 'eFFP')
 #     envs <- c('sal_opt', 'temp_opt')  # change for lotterhos slim work
-    envs <- colnames(envdata)  # changing to allow complex sim envs
+    envs <- colnames(envdata)  # changing to allow multivariate sim envs and nuisance envs
 
     stopifnot(all(envs %in% colnames(envdata)))
     cat(sprintf('There are %s environmental attributes in the envdata table.', len(envs)))
