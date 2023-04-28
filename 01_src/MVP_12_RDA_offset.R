@@ -63,7 +63,7 @@ subset_snps = function(){
     #-----------------------------------------------------------------------------------------------------------#
     # Subset input SNPs to target marker set (all, RDA outliers, or known causal or neutral markers from sims).
     #-----------------------------------------------------------------------------------------------------------#
-    cat(sprintf('\n\nReading in SNPs ...'))
+    cat(sprintf('\n\nReading in SNPs ...\n'))
     
     # read in SNPs
     snp_file = paste0(
@@ -86,6 +86,7 @@ subset_snps = function(){
             sprintf('/%s_pooled_Rout_muts_full.txt', seed)
         )
     }
+    print(c('mutsfile =', mutsfile))
     muts = read.table(mutsfile, header=TRUE)
     rownames(muts) = muts[ , 'mutname']
 
@@ -112,6 +113,8 @@ subset_snps = function(){
             # since I've double checked MAF in MVP_01.py which created the snp file used here
         outliers = intersect(colnames(snps), outliers)
     }
+    
+    print(c('len(outliers) = ', len(outliers)))
 
     # subset
     outlier_snps = snps[ , outliers]
@@ -663,6 +666,7 @@ offset_estimation = function(outlier_snps, rda, ntraits=2){
     #---------------------------------------------------------------#
     # get current environmental data (created from MVP_01.py)
     env_pres = get_curr_envdata(ntraits=ntraits)
+    print(c('env_pres.shape = ', dim(env_pres)))
 
     # train RDA on outliers
     outlier_rda = train_outlier_rda(outlier_snps, rda, env_pres, ntraits=ntraits)
