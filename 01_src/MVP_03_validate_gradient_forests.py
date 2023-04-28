@@ -419,6 +419,15 @@ def create_scatter_plots(offset_dfs, fitness_mat, locations, envdata, samppop, p
                          marker_sets=['all', 'adaptive', 'neutral']):
     """Create a figure of the simulated landscape (10x10) with fitness~offset in each location (x, y)."""
     print(ColorText('\nCreating scatter plots').bold().custom('gold'))
+    
+    # support for nuis_envs
+    colormap = {'temp_opt' : 'Reds',
+                'sal_opt' : 'Blues_r',
+                'TSsd' : 'Greens', 
+                'ISO' : 'Oranges',
+                'PSsd' : 'Purples'                
+               }
+    
 #     for ind_or_pooled in ['ind', 'pooled']:
     for ind_or_pooled in ['pooled']:  # CHANGE BACK to include 'ind'
         for row, marker_set in enumerate(pbar(marker_sets, desc=ind_or_pooled)):
@@ -426,8 +435,8 @@ def create_scatter_plots(offset_dfs, fitness_mat, locations, envdata, samppop, p
             fitness = fitness_mat[ind_or_pooled].copy()
 
             for env, env_series in envdata.items():
-                colormap = 'Reds' if env=='temp_opt' else 'Blues_r'
-                cmap = plt.cm.get_cmap(colormap)
+#                 colormap = 'Reds' if env=='temp_opt' else 'Blues_r'
+                cmap = plt.cm.get_cmap(colormap[env])
                 
                 # determine colors for scatter plot
                 if ind_or_pooled == 'ind':
@@ -698,7 +707,10 @@ if __name__ == '__main__':
         'ind': 'individual',
         'pooled': 'pooled',
         'sal_opt' : 'sal',
-        'temp_opt' : 'temp'
+        'temp_opt' : 'temp',
+        'ISO' : 'ISO',
+        'PSsd' : 'PSsd',
+        'TSsd' : 'TSsd'
     }
     
     # set global variables needed for `mvp06.color`, `mvp06.performance_scatter`, and `mvp13.color_histogram`
