@@ -1,9 +1,9 @@
-"""Validate offset predictions from lfmm using population mean fitness.
+"""Validate offset predictions from RDA (sensu Capblancq & Forester) using population mean fitness.
 
 Usage
 -----
 conda activate mvp_env
-python MVP_11_validate_lfmm2_offset.py seed slimdir outerdir
+python MVP_13_RDA_validation.py seed slimdir outerdir
 
 """
 from pythonimports import *
