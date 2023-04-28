@@ -120,9 +120,13 @@ def get_pop_data(slimdir, seed):
     # get x and y coords for each population
     locations = subset.groupby('subpopID')[['x', 'y']].apply(np.mean)
     locations.columns = ['lon', 'lat']  # index = subpopID
+    
+    # support for nuisance envs
+    nuis_envs = [env for env in ['ISO', 'PSsd', 'TSsd'] if env in subset.columns.tolist()]  # blank if no nuis_envs
+    envs = ['sal_opt', 'temp_opt'] + nuis_envs
 
     # get envdata for each subpopID
-    envdata = subset.groupby('subpopID')[['sal_opt', 'temp_opt']].apply(np.mean)
+    envdata = subset.groupby('subpopID')[envs].apply(np.mean)
     
     return subset, locations, envdata
 
