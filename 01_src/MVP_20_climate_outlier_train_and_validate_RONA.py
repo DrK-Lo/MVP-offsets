@@ -83,6 +83,7 @@ if __name__ == '__main__':
     thisfile, outerdir, outlier_outerdir = sys.argv
 
     assert op.basename(outerdir) == op.basename(outlier_outerdir)
+    assert outerdir != outlier_outerdir
 
     run = op.basename(outerdir)
     
