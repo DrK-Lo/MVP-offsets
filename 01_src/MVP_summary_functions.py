@@ -475,12 +475,16 @@ def latest_commit():
 
     width = max([len(x) for x in flatten([pyimp_info.split('\n'), mvp_info.split('\n'), current_datetime])])
     hashes = '#########################################################\n'
-
+    
+    try:
+        env = 'conda env: %s\n' % os.environ['CONDA_DEFAULT_ENV']
+    except KeyError as e:
+        env = ''
 
     print(
         hashes
         + current_datetime
-        + version + '\n'
+        + version + f'{env}\n'
         + f"Current commit of %s:\n" % ColorText("pythonimports").bold()
         + pyimp_info + '\n'
         + "Current commit of %s:\n" % ColorText('MVP_offsets').bold().blue()
