@@ -345,7 +345,8 @@ repdirs = ['/work/lotterhos/MVP-Offsets/run_20220919_0-225',
            '/work/lotterhos/MVP-Offsets/run_20220919_675-900',
            '/work/lotterhos/MVP-Offsets/run_20220919_900-1125',
            '/work/lotterhos/MVP-Offsets/run_20220919_1125-1350',
-           '/work/lotterhos/MVP-Offsets/run_20220919_1350-1575'
+           '/work/lotterhos/MVP-Offsets/run_20220919_1350-1575',
+           '/work/lotterhos/MVP-Offsets/run_20220919_1575-1800'
           ]
 
 def combine_level_dicts(use_bcs_data=True, display_df=False, performance='garden_performance'):
