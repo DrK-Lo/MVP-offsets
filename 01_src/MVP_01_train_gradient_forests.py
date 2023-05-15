@@ -462,7 +462,7 @@ def submit_jobs(shfiles):
                        rem_flags=['#SBATCH --nodes=1', '#SBATCH --cpus-per-task=7'],
                        mem='300000M',
                        begin_alert=False,
-                       end_alert=True,
+                       end_alert=False,
                        added_text=shtext)
     
     pass

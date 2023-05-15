@@ -246,7 +246,7 @@ def create_adaptive_and_neutral_files():
     return loci_files
 
 
-def create_shfiles(lfmm_envfiles, poplabel_file, garden_files, locus_files, thresh=36):
+def create_shfiles(lfmm_envfiles, poplabel_file, garden_files, locus_files, thresh=72):
     """Create slurm job files to estimate genetic offset using lfmm method.
     
     Notes
@@ -305,11 +305,11 @@ def create_shfiles(lfmm_envfiles, poplabel_file, garden_files, locus_files, thre
                     job = f'{seed}_lfmm_batch_{batch_num}'
 
                     # determine amount of memory required (with cushion)
-                    if len(cmds) == thresh:
-                        mem = '175000M' 
-                    else:
-                        val = (len(cmds) * 4900) + 5000
-                        mem = f'{val}M'
+#                     if len(cmds) == thresh:
+#                         mem = '175000M' 
+#                     else:
+#                         val = (len(cmds) * 4900) + 5000
+#                         mem = f'{val}M'
 
                     # write commands to a file that I can `cat` to GNU parallel
                     cmd_file = op.join(indir, f'{job}.txt')
@@ -322,11 +322,11 @@ def create_shfiles(lfmm_envfiles, poplabel_file, garden_files, locus_files, thre
                     # what text to write to sh
                     text = f'''#!/bin/bash
 #SBATCH --job-name={job}
-#SBATCH --time=03:00:00
-#SBATCH --mem={mem}
+#SBATCH --time=06:00:00
+#SBATCH --mem=175000M
 #SBATCH --partition=short
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task={len(cmds)}
+#SBATCH --cpus-per-task=36
 #SBATCH --output={job}_%j.out
 #SBATCH --mail-user={email}
 #SBATCH --mail-type=FAIL
@@ -345,7 +345,7 @@ conda activate mvp_env
 cd {mvp_dir}
 
 # re run any failed jobs from the cmd_file
-python MVP_watch_for_failure_of_train_lfmm2_offset.py {seed} {shfile} {outerdir} {len(cmds)}
+python MVP_watch_for_failure_of_train_lfmm2_offset.py {seed} {shfile} {outerdir} 36
 
 '''
                     # write slurm script to file
