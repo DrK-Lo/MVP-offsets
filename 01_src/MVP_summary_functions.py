@@ -278,10 +278,10 @@ def get_summary_data():
 
 
 def get_bcs_dataframe(data):
-    data = data[(data['marker_set']=='all') & (data['plevel'] == '2-trait')].copy()
+    data = data[(data['marker_set'] == 'all') & (data['plevel'] == '2-trait')].copy()
 
     if 'structcrxn' in data.columns.tolist():  # == 'rda'
-        data = data[(data['structcrxn']!='corr') &  # allows for np.nan in column (don't do this: data['structcrxn']=='nocorr')
+        data = data[(data['structcrxn'] != 'corr') &  # allows for np.nan in column (don't do this: data['structcrxn']=='nocorr')
                     (~data['marker_set'].str.contains('outlier'))].copy()  # remove rda outliers (with or without spaces)/plural
 
     # combine some columns
@@ -315,26 +315,6 @@ def get_bcs_data(level_scores, performance='garden_performance'):
         data = level_scores[program][performance].copy()
         
         bcs[program] = get_bcs_dataframe(data)
-#         data = data[(data['marker_set']=='all') & (data['plevel'] == '2-trait')]
-
-#         if program == 'rda' :
-#             data = data[data['structcrxn']=='nocorr']
-
-#         # combine some columns
-#         data['architecture'] = data['glevel'].str.cat(data[['plevel', 'pleio', 'slevel']], sep='_').str.replace(' ', '-')
-#         data['plevel_pleio'] = data['plevel'] + '_' + data['pleio']
-#         data['demography'] = data['popsize'] + '_' + data['migration']
-#         data['seed_garden'] = data['garden'].astype(str) + '_' + data['seed'].astype(str)
-
-#         bcs[program] = data
-        
-#     # get data that contains level of local adaptation
-#     summary = get_summary_data()
-
-#     # add LA and proportion of clinal alleles to the bcs data
-#     for df in bcs.values():
-#         for col in ['final_LA', 'cor_TPR_temp', 'cor_TPR_sal']:
-#             df[col] = df.seed.map(summary[col]) 
 
     return bcs
 
