@@ -65,6 +65,14 @@ The directory under which all anaconda envs are stored.""")
                         dest="run_gf",
                         help='''Boolean: true if used, false otherwise.
 Whether to run Gradient Forests analysis.''')
+    
+    parser.add_argument("--temp-only",
+                        required=False,
+                        action='store_true',
+                        dest='temp_only',
+                        help='''Boolean: true if used, false otherwise.
+Whether to run GF using only the temp environment.'''
+    )
 
     parser.add_argument("--rona",
                         required=False,
@@ -169,7 +177,7 @@ conda activate mvp_env
 
 cd {mvp_dir}
 
-python MVP_01_train_gradient_forests.py {seed} {args.slimdir} {args.outdir} 56 {rscript} {args.email}
+python MVP_01_train_gradient_forests.py {seed} {args.slimdir} {args.outdir} 56 {rscript} {args.email} {args.temp_only}
 
 """
         shfile = op.join(shdir, f'{basename}.sh')
@@ -411,8 +419,6 @@ def main():
 
     # get a list of simluations (identified by their seed number)
     seeds = get_seeds(args.slimdir)
-
-    # create cluster profiles for each seed
 
     # which offsets to run?
     if args.run_all is True:

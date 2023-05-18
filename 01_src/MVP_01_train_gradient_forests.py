@@ -8,7 +8,7 @@ URGENT NOTES
 Usage
 -----
 conda activate mvp_env
-python MVP_01_train_gradient_forests.py seed slimdir outdir num_engines rscript email
+python MVP_01_train_gradient_forests.py seed slimdir outdir num_engines rscript email [temp_only]
 
 Parameters
 ----------
@@ -19,6 +19,7 @@ num_engines - the number of engines to start for parallelizing tasks
 rscript - path to R environment's Rscript executable - eg ~/anaconda3/envs/r35/bin/Rscript
 imports_dir - path to imports.R from github.com/brandonlind/r_imports - deprecated!
 email - email to receive sbatch notifications
+temp_only - (optional) - if used, run GF using only the temp environment, otherwise use temp + sal
 
 Dependencies
 ------------
@@ -257,8 +258,10 @@ def create_rangefiles(subset, samppop):
     print(ColorText('\nCreating range files ...').bold().custom('gold'))
 
     # INDIVIDUAL-LEVEL DATA
-    rangedata = subset[['y', 'x', 'sal_opt', 'temp_opt']].copy()
-    rangedata.columns = ['lat', 'lon', 'sal_opt', 'temp_opt']
+#     rangedata = subset[['y', 'x', 'sal_opt', 'temp_opt']].copy()
+    rangedata = subset[['y', 'x', *envs]].copy()
+#     rangedata.columns = ['lat', 'lon', 'sal_opt', 'temp_opt']
+    rangedata.columns = ['lat', 'lon', *envs]
 
     # save
     gf_range_files['ind'] = op.join(training_filedir, f'{seed}_rangefile_GFready_ind.txt')
@@ -271,7 +274,8 @@ def create_rangefiles(subset, samppop):
     _['subpopID'] = _.index.map(samppop)
 
     # get pop-level data
-    pool_rangedata = _.groupby('subpopID')[['lat', 'lon', 'sal_opt', 'temp_opt']].apply(np.mean)
+#     pool_rangedata = _.groupby('subpopID')[['lat', 'lon', 'sal_opt', 'temp_opt']].apply(np.mean)
+    pool_rangedata = _.groupby('subpopID')[['lat', 'lon', *envs]].apply(np.mean)
     pool_rangedata.index.name = None  # remove index label
 
     # save
@@ -287,14 +291,14 @@ def create_envfiles(rangedata, pool_rangedata):
     print(ColorText('\nCreating envdata files ...').bold().custom('gold'))
     
     # INDIVIDUAL-LEVEL DATA
-    envdata = rangedata[['sal_opt', 'temp_opt']].copy()
+    envdata = rangedata[envs].copy()
     # save
     gf_env_files['ind'] = op.join(training_filedir, f'{seed}_envfile_GFready_ind.txt')
     envdata.to_csv(gf_env_files['ind'], sep='\t', index=True)
     print(f"{gf_env_files['ind'] = }")
 
     # POOL-SEQ DATA
-    pool_envdata = pool_rangedata[['sal_opt', 'temp_opt']].copy()
+    pool_envdata = pool_rangedata[envs].copy()
     gf_env_files['pooled'] = gf_env_files['ind'].replace('_ind.txt', '_pooled.txt')
     # save
     pool_envdata.to_csv(gf_env_files['pooled'],
@@ -505,7 +509,12 @@ def main():
 
 if __name__ == '__main__':
     # get input args
-    thisfile, seed, slimdir, outdir, num_engines, rscript_exe, email = sys.argv
+    thisfile, seed, slimdir, outdir, num_engines, rscript_exe, email, *temp_only = sys.argv
+    
+    if len(temp_only) > 0 and temp_only[0] == 'True':
+        envs = ['temp_opt']
+    else:
+        envs = ['sal_opt', 'temp_opt']
     
     mvp_dir = op.dirname(op.abspath(thisfile))
 
