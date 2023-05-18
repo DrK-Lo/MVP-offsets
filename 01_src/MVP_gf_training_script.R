@@ -103,17 +103,18 @@ prep_envdata <- function(envfile, pops){
 #     envs <- c('sal_opt', 'temp_opt')  # change for lotterhos slim work
     envs <- colnames(envdata)  # changing to allow multivariate sim envs and nuisance envs
 
-    stopifnot(all(envs %in% colnames(envdata)))
+#     stopifnot(all(envs %in% colnames(envdata)))
     cat(sprintf('There are %s environmental attributes in the envdata table.', len(envs)))
     
     # order pops same as snp table
     stopifnot(all(pops %in% rownames(envdata)))
-    envdata <- envdata[pops, ]
+    envdata <- envdata[pops, , drop=FALSE]
     
     # add to global namespace so I don't have to return a stupid list, stupid R
     envs <<- envs
     
-    return(envdata[, envs])
+#     return(envdata[, envs])
+    return(envdata)
 }
 
 
@@ -160,7 +161,7 @@ stopifnot(all(rownames(envdata)==rownames(cand_freqs)))
 maxLevel <- floor(log2(0.368*nrow(envdata)/2))
 ptm <- proc.time()
 gfOut <- gradientForest(cbind(envdata, cand_freqs),
-                        predictor.vars=colnames(envdata[ ,envs]),
+                        predictor.vars=colnames(envdata),
                         response.vars=colnames(cand_freqs),
                         ntree=500,
                         transform=NULL,
@@ -176,7 +177,7 @@ gc()  # manual garbage collection to avoid mem issues when using `predict` below
 ### INTEROPOLATE MODEL TO RANGE_WIDE DATA FOR THE SAME TIME PERIOD
 cat(sprintf('\n\nInterpolating gradient forests model ...\n'))
 ptm <- proc.time()
-predOut.gf <- predict(gfOut, range_data[ ,envs])
+predOut.gf <- predict(gfOut, range_data[ , envs, drop=FALSE])
 print(proc.time() - ptm)
 
 
