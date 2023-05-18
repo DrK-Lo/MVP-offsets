@@ -276,12 +276,12 @@ def create_shfiles(lfmm_envfiles, poplabel_file, garden_files, locus_files, thre
     adaptive_file, neutral_file = locus_files
     
     # how to know when I'm done creating commands = num_gardens * num_marker_sets
-    expected_jobcount = len(flatten(garden_files.values())) * (len(locus_files) + 1)  # hard-coded 1 as "all" loci below
+    expected_jobcount = len(flatten(garden_files.values())) * (len(locus_files) + 1)  # hard-coded 1 is "all" loci below
     
     jobcount = 0  # to know when I'm done iterating
     cmds = []  # list of training commands to parallelize for a given job
     shfiles = []
-    for n_traits, gfiles in garden_files.items():
+    for n_traits, gfiles in garden_files.items():  # using one or two environments
         for garden_file in gfiles:  # for each of the transplant environments
             garden = op.basename(garden_file).split("_")[-1].split('.')[0]  # subpopID
 
