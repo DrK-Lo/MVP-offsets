@@ -1,11 +1,11 @@
 #-------------------------------------------------------------------------------------------------------------------------#
-# Use lfmm2 to predict genetic offset to future climates
+# Use lfmm2 to predict genetic offset to future climates for complex sims.
 #
 # This script is called from 02_analysis/05_complex_sims/04_train_lfmm.ipynb
 #
 # Notes
 # -----
-# similar to MVP_process_lfmm.R but for the complex sims
+# similar to MVP_process_lfmm.R but for the complex sims - THIS HAS NOTHING TO DO WITH CLIMATE OUTLIER
 #
 # Usage
 # -----
