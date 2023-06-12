@@ -21,7 +21,6 @@
 #    - generally, these are the envdata extracted from ClimateNA GIS data, and then clipped
 #        to the range map
 #    - these can be current, future, or uniform (eg for common garden) climate
-#    - see eg yeaman03:/notebooks/007_JP_gea/07_gradient_forest/01_prep_spatial_envdata.ipynb
 # basename - the basename prefix wanted for saving files in `save_dir`
 # save_dir - the directory where files should be saved
 #--------------------------------------------------------------------------------------------------------#
