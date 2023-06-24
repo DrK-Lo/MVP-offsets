@@ -5,7 +5,7 @@
 #
 # Notes
 # -----
-# similar to MVP_process_lfmm.R but for the complex sims - THIS HAS NOTHING TO DO WITH CLIMATE OUTLIER
+# similar to MVP_process_lfmm.R but for the complex sims
 #
 # Usage
 # -----
