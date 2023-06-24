@@ -416,6 +416,11 @@ def main():
     
     # calculate correlation between fitness and offset within and across gardens
     performance_dicts = calculate_performance(fitness, offset_dfs)
+    
+    if any([  # nuisance validation I only need performance_dicts
+        'ntraits-4' in keys(performance_dicts['garden_performance']['all']),
+        'ntraits-5' in keys(performance_dicts['garden_performance']['all'])]):
+        sys.exit(0)
 
     # create figs
     fig_wrapper(performance_dicts, offset_dfs, fitness, envdata, locations)
