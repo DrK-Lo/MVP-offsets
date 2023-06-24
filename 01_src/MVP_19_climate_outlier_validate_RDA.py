@@ -12,6 +12,10 @@ outerdir - path
 outlier_outerdir - path
     - the directory where climate outlier files and results are to be saved (similar to outerdir)
     - eg /path/to/climate_outlier/run_20220919_225-450
+    
+Notes
+-----
+- ignores individual data in `check_completed`
 """
 from pythonimports import *
 
@@ -193,13 +197,13 @@ if __name__ ==  '__main__':
     t1 = dt.now()
 
     # get some dirs
-    cmd_dir = op.join(outerdir, 'rda/rda_catfiles')
+    cmd_dir = op.join(outerdir, 'rda/rda_catfiles')  # not used
     cat_dir = op.join(outlier_outerdir, 'rda/rda_catfiles')
     shdir = op.join(outlier_outerdir, 'rda/shfiles')
     validation_dir = makedir(op.join(outlier_outerdir, 'rda/validation'))
     offset_dir = op.join(outlier_outerdir, 'rda/offset_outfiles')
 
-    run = op.basename(outerdir)
+    run = op.basename(outlier_outerdir)
     lview, dview, cluster_id = start_engines(n=36, profile=f'{run}_RDA')
 
     # print versions of packages and environment
