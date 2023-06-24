@@ -1,5 +1,5 @@
 #-------------------------------------------------------------------------------------------------#
-# Estimate PCs for pooled data for use in RDA_offset.R
+# Estimate PCs for pooled data for use in MVP_12_RDA_offset.R
 #
 # Usage
 # -----
@@ -16,11 +16,13 @@
 #     - path to pooled snpfile created for MVP_gf_training_script.R
 # outerdir
 #     - the directory under which all files from pipeline are created (--outdir arg to MVP_00.py)
+# mvp_dir
+#     - the directory with the MVP executable files ie 01/src
 #
 # Dependencies
 # ------------
-# - dependent upon completion of MVP_01_train_gradient_forests.py
-# - dependend upon completion of MVP_00_start_pipeline.py --rda
+# - dependent upon completion of MVP_01_train_gradient_forests.py (or GF nuisance environment scripts)
+# - dependend upon completion of MVP_00_start_pipeline.py --rda  (or GF nuisance environment scripts)
 # - ability to source MVP_12_RDA_offset.R for functions:
 #     - `get_curr_envdata`
 #         - which also calls `standardize_envdata`
@@ -227,11 +229,30 @@ run_rda = function(snps){
     # read in PCA data
     pcdata = get_pc_data(env_pres)
     
-    # structure-uncorrected RDA
-    rdaout <- rda(snps ~ sal + temp)
-    
-    # structure-corrected RDA
-    rdaout_corr = rda(snps ~ sal + temp + Condition(pcdata[, 'PC1'], pcdata[, 'PC2']))
+    # do the RDA
+    if (ncol(env_pres) == 2){
+        # structure-uncorrected RDA
+        rdaout <- rda(snps ~ sal + temp)
+        # structure-corrected RDA
+        rdaout_corr = rda(snps ~ sal + temp + Condition(pcdata[, 'PC1'], pcdata[, 'PC2']))
+        
+    } else if (ncol(env_pres) == 4){
+        ISO = env_pres[, 'ISO']
+        PSsd = env_pres[, 'PSsd']
+        # structure-uncorrected RDA
+        rdaout <- rda(snps ~ sal + temp + ISO + PSsd)
+        # structure-corrected RDA
+        rdaout_corr = rda(snps ~ sal + temp + ISO + PSsd + Condition(pcdata[, 'PC1'], pcdata[, 'PC2']))
+        
+    } else if (ncol(env_pres) == 5){
+        ISO = env_pres[, 'ISO']
+        PSsd = env_pres[, 'PSsd']
+        TSsd = env_pres[, 'TSsd']
+        # structure-uncorrected RDA
+        rdaout <- rda(snps ~ sal + temp + ISO + PSsd + TSsd)
+        # structure-corrected RDA
+        rdaout_corr = rda(snps ~ sal + temp + ISO + PSsd + TSsd + Condition(pcdata[, 'PC1'], pcdata[, 'PC2']))
+    }
     
     # save
     rda_outdir = paste0(outerdir, '/rda/rda_files')
@@ -249,6 +270,8 @@ run_rda = function(snps){
     
     saveRDS(rdaout, file)
     saveRDS(rdaout_corr, file_corr)
+    print('FILE')
+    print(file)
 
     # create a muts file like Katie's
     create_muts_file(rdaout, rdaout_corr)
@@ -267,8 +290,7 @@ main = function(args){
     
     # import functions
     options(run.main=FALSE)
-    thisfile = paste0(mvp_dir, '/MVP_pooled_pca_and_rda.R')
-    source(paste0(dirname(thisfile), '/MVP_12_RDA_offset.R'))
+    source(paste0(mvp_dir, '/MVP_12_RDA_offset.R'))
     
     # directories of files created in MVP_01.py - set globally for MVP_RDA_offset.R::get_curr_envdata
     gf_training_dir <<- paste0(outerdir, '/gradient_forests/training/training_files')
