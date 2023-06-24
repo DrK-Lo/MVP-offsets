@@ -23,6 +23,8 @@
 # ----------
 # seed
 #     - the seed number of the simulation - used to find associated files
+# slimdir (not used)
+#     - directory with Katie's simulation output 
 # outerdir
 #     - the directory under which all files from pipeline are created (--outdir arg to MVP_00.py)
 # rda_file
@@ -56,13 +58,13 @@ sort_dfs_indices <- function(dfs){
     rownames(dfs) = sprintf("%05d", as.integer(rownames(dfs)))  # add leading zero for sorting
     dfs = dfs[order(rownames(dfs)), order(as.numeric(colnames(dfs)))]  # sort
     rownames(dfs) = as.character(as.integer(rownames(dfs)))  # remove leading zeros from `subpopID` (ie rownames)
-    
+
     return(dfs)
 }
 
 
 # redo get_garden_climates
-get_garden_climates <- function(subsetdf){
+get_garden_climates <- function(subsetdf, ntraits=2){
     #--------------------------------------------------------------------------------------------------#
     # Get climate outlier values.
     # 
@@ -70,6 +72,7 @@ get_garden_climates <- function(subsetdf){
     # ----------
     # subsetdf - unused (for compatibility with MVP_12_RDA_offset.R :: estimate_garden_offsets)
     # outerdir - (global var) this is the climate_outlier directory (GF scripts created files)
+    # ntraits - unused (for compatitiblity with MVP_nuisance_RDA_offset.R)
     #
     # Returns
     # -------
@@ -112,26 +115,49 @@ create_garden_data <- function(garden_climates, subsetdf, scenario, ntraits){
     #     - global var; %in% c('ind', 'pooled')
     #------------------------------------------------------------------------------------------------#
     future_clim = garden_climates[scenario, ]
-    
+
     # get a dataframe with rows for pops or inds and cols for envs
-    if (ind_or_pooled == 'ind'){
-        garden_data = data.frame(temp_opt=rep(future_clim$temp_opt, nrow(subsetdf)),
-                                 sal_opt=rep(future_clim$sal_opt, nrow(subsetdf)),
-                                 row.names=subsetdf$indID)
-    } else {
+    if (ntraits < 4){
+        if (ind_or_pooled == 'ind'){
+            garden_data = data.frame(temp_opt=rep(future_clim$temp_opt, nrow(subsetdf)),
+                                     sal_opt=rep(future_clim$sal_opt, nrow(subsetdf)),
+                                     row.names=subsetdf$indID)
+        } else {
+            garden_data = data.frame(temp_opt=rep(future_clim$temp_opt, len(unique(subsetdf$subpopID))),
+                                     sal_opt=rep(future_clim$sal_opt, len(unique(subsetdf$subpopID))),
+                                     row.names=unique(subsetdf$subpopID))  # order doesnt matter since all same env
+        }
+
+    # nuisance envs were not in the 2-trait envdata
+    } else if (ntraits == 4){
+        stopifnot(ind_or_pooled == 'pooled')  # i stopped doing ind at this point
         garden_data = data.frame(temp_opt=rep(future_clim$temp_opt, len(unique(subsetdf$subpopID))),
                                  sal_opt=rep(future_clim$sal_opt, len(unique(subsetdf$subpopID))),
-                                 row.names=unique(subsetdf$subpopID))
+                                 ISO=rep(future_clim$ISO, len(unique(subsetdf$subpopID))),
+                                 PSsd=rep(future_clim$PSsd, len(unique(subsetdf$subpopID))),
+                                 row.names=unique(subsetdf$subpopID))  # order doesnt matter since all same env
+
+    } else if (ntraits == 5){
+        stopifnot(ind_or_pooled == 'pooled')  # i stopped doing ind at this point
+        garden_data = data.frame(temp_opt=rep(future_clim$temp_opt, len(unique(subsetdf$subpopID))),
+                                 sal_opt=rep(future_clim$sal_opt, len(unique(subsetdf$subpopID))),
+                                 ISO=rep(future_clim$ISO, len(unique(subsetdf$subpopID))),
+                                 TSsd=rep(future_clim$TSsd, len(unique(subsetdf$subpopID))),                                 
+                                 PSsd=rep(future_clim$PSsd, len(unique(subsetdf$subpopID))),
+                                 row.names=unique(subsetdf$subpopID))  # order doesnt matter since all same env
+
+    } else {
+        stop(sprintf('was not expecting ntraits = %s', ntraits))
     }
-    
+
     # decide how many envs to keep
     garden_data = standardize_envdata(garden_data, ntraits=ntraits)
-    
+
     # make sure it's all one value for each env (col) across rows
     for (env in colnames(garden_data)){
         stopifnot(length(unique(garden_data[, env])) == 1)
     }    
-    
+
     return (garden_data)
 }
 
@@ -152,6 +178,13 @@ outlier_main = function(args){
     # input args  (first 6 args are set in MVP_12_RDA_offset.R :: main)
     mvp_dir <- args[7]  # path to MVP_offsets/01_src
     
+    # nuisance env compatibility
+    if (len(args) == 8){
+        total_traits=args[8]
+    } else {
+        total_traits=2
+    }
+    
     # source MVP_12 functions used in RDA
     options(run.main=FALSE)
     mvp_12_rda_offset = paste0(mvp_dir, '/MVP_12_RDA_offset.R')
@@ -162,7 +195,7 @@ outlier_main = function(args){
     source(thisfile)
     
     # run main from MVP_12_RDA_offset.R
-    main(args)
+    main(args, total_traits=total_traits)
     
 }
 
