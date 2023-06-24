@@ -106,22 +106,22 @@ def main(iteration=0):
 
 if __name__ == '__main__':
     thisfile, seed, shfile, outerdir, num_engines = sys.argv
-    
+
     print(
         ColorText(
             f'\nStarting {op.basename(thisfile)} ...'
         ).bold().custom('gold')
     )
-    
+
     # start cluster
     lview, dview, cluster_id = start_engines(n=int(num_engines), profile=f'lfmm2_{seed}')
-    
+
     # timer
     t1 = dt.now()
-    
+
     # print versions of packages and environment
     print(ColorText('\nEnvironment info :').bold().custom('gold'))
     latest_commit()
     session_info.show(html=False, dependencies=True)
-    
+
     main()
