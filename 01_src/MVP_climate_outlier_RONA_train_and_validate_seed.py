@@ -109,6 +109,7 @@ def main():
         mvp05.calculate_rona(rona_elements, sig_models, marker_set)
 
     # load fitness of pops to climate outlier scenarios
+    mvp15.fitness_dir = op.join(op.dirname(outlier_outerdir), 'fitness_mats')
     fitness = mvp15.get_fitness([seed])[seed]
 
     # validate fitness predictions and annotate seeds with simulation metadata
