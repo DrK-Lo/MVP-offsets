@@ -176,6 +176,7 @@ def main():
 
     offset_dfs = read_offset_dfs(all_files)
 
+    mvp15.fitness_dir = op.join(op.dirname(outlier_outerdir), 'fitness_mats')
     fitness = mvp15.get_fitness(offset_dfs.keys())
 
     validate(offset_dfs, fitness)
