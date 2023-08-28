@@ -156,13 +156,13 @@ standardize_envdata = function(envdata, ntraits=2){
 
 
 get_curr_envdata = function(ntraits=2){
-    #---------------------------------------------------#
+    #-----------------------------------------------------------------------------------#
     # Get the current environmental data for this seed.
     # 
     # Notes
     # -----
-    # - environmental files created in MVP_01.py
-    #---------------------------------------------------#
+    # - environmental files created in MVP_01.py for normal runs of 1- and 2-trait sims
+    #-----------------------------------------------------------------------------------#
     cat(sprintf('\n\nReading in current environmental data ...'))
     
     # identify envfile and read in
@@ -228,7 +228,7 @@ get_pc_data = function(env_pres){
 
 
 train_outlier_rda = function(outlier_snps, rda, env_pres, ntraits=2){
-    #---------------------------------------------------------------#
+    #----------------------------------------------------------------------------------#
     # Train new RDA on outliers inferred from script input args.
     # 
     # Parameters
@@ -244,7 +244,7 @@ train_outlier_rda = function(outlier_snps, rda, env_pres, ntraits=2){
     # -----
     # - assumes any structure correction is done with first two PCs
     #     - see get_pc_data()
-    #---------------------------------------------------------------#
+    #----------------------------------------------------------------------------------#
     cat(sprintf('\n\nTraining outlier RDA ...'))
 
     # decide if I need to estimate a new RDA
@@ -363,7 +363,7 @@ genomic_offset = function(RDA, env_pres, env_fut, method="loadings"){
     #       rows for individuals or pops, columns for envs
     # K
     #     - int; number of RDA axes to use in offset calculation
-    #     - set to K=2 because of convention used in MVP sims/sim processing
+    #     - set to K=n_env because of convention used in MVP sims/sim processing
     #------------------------------------------------------------------------#
     
     K = ncol(env_pres)
