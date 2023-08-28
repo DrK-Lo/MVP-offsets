@@ -184,7 +184,12 @@ def main():
 
 if __name__ == '__main__':
     
-    thisfile, outerdir, outlier_outerdir = sys.argv
+    thisfile, outerdir, outlier_outerdir, *is_multivariate = sys.argv
+    
+    if len(is_multivariate) == 0:  # if one of the 225 levels
+        training_script = '/home/b.lind/code/MVP-offsets/01_src/MVP_process_lfmm.R'
+    else:  # multivariate
+        training_script = '/home/b.lind/code/MVP-offsets/01_src/MVP_complex_sims_process_lfmm.R'
     
     assert op.basename(outerdir) == op.basename(outlier_outerdir)
     assert outerdir != outlier_outerdir
@@ -205,7 +210,6 @@ if __name__ == '__main__':
     new_shdir = makedir(op.join(outlier_outerdir, 'lfmm2/lfmm_shfiles'))
     new_outdir = makedir(op.join(outlier_outerdir, 'lfmm2/lfmm_outfiles'))
     
-    training_script = '/home/b.lind/code/MVP-offsets/01_src/MVP_process_lfmm.R'
     slimdir = op.join(outerdir, 'slimdir')
     
     # print versions of packages and environment
