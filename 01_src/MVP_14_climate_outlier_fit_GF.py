@@ -22,7 +22,7 @@ import MVP_02_fit_gradient_forests as mvp02
 import MVP_summary_functions as mvp
 
 
-def set_up_fitting_cmds(new_envfiles, num_expected=225):
+def set_up_fitting_cmds(new_envfiles):
     """
     Parameters
     ----------
@@ -31,6 +31,12 @@ def set_up_fitting_cmds(new_envfiles, num_expected=225):
     
     """
     print(ColorText('\nSetting up fitting commands ...').bold().custom('gold'))
+    
+    if 'tutorial' in outerdir:
+        num_expected = 1
+    else:
+        num_expected = 225
+    
     predfiles = fs(preddir, pattern = '_pooled_', endswith='predOut.RDS')
 
     assert len(predfiles) / 3 == num_expected
