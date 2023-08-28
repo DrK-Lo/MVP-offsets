@@ -29,10 +29,10 @@ args = commandArgs(trailingOnly=TRUE)
 
 seed = as.character(args[1])
 output_file = args[2]
-opt1 = as.numeric(args[3])  # temp or MTWetQ
+opt1 = as.numeric(args[3])  # temp or mat
 
 if (len(args) >= 4){
-    opt0 = as.numeric(args[4])  # sal or mat
+    opt0 = as.numeric(args[4])  # sal or MTWetQ
 }
 
 if (len(args) <= 4){  # MVP sims outlier scenarios
@@ -49,7 +49,7 @@ if (len(args) <= 4){  # MVP sims outlier scenarios
     subset = read.table(paste0(slimdir, seed, '_Rout_ind_subset.txt'),
                         sep=' ',
                         header=T)    
-} else {  # complex sims
+} else {  # multivariate sims
     
     opt2 = as.numeric(args[5])  # MTDQ
     opt3 = as.numeric(args[6])  # PDM
@@ -93,7 +93,7 @@ if (len(args) <= 4){  # MVP sims outlier scenarios
 fitness = data.frame(matrix(nrow=1, ncol=100))
 colnames(fitness) = 1:ncol(fitness)
 
-# fill in empty dataframe with fitness of each transplant into garden with optima opt0 and opt1
+# fill in empty dataframe with fitness of each transplant into garden with optima opt0 [opt1] etc
 for (transplant_ID in 1:100){
     if (len(args) == 4){  # for two selective environments
         phenos = cbind(subset[subset$subpopID == transplant_ID, 'phen_sal'],
@@ -148,7 +148,7 @@ for (transplant_ID in 1:100){
         fitness_norm = dmvnorm(c(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
                                c(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
                                fitness_varcov)
-        
+        print('fitness_norm')
         print(fitness_norm)
         print(c(opt0, opt1, opt2, opt3, opt4, opt5))
         
@@ -169,4 +169,5 @@ for (transplant_ID in 1:100){
 
 write.table(fitness, output_file, sep='	', row.names=T, col.names=T)
 
+cat(sprintf('wrote fitness to %s', output_file))
 
