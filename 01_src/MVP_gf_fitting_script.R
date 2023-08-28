@@ -4,7 +4,7 @@
 # Usage
 # -----
 # conda activate gf_env
-# Rscript gradient_fitting_script.R gfOut_trainingfile range_file predfile maskfile basename save_dir
+# Rscript MVP_gf_fitting_script.R gfOut_trainingfile garden_file predfile basename save_dir
 #
 # Parameters
 # ----------
