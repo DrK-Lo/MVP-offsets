@@ -45,7 +45,7 @@ def get_offsets():
     return gf_offsets
 
 
-def get_fitness(seeds, fitness_dir='/home/b.lind/offsets/climate_outlier_runs/fitness_mats'):
+def get_fitness(seeds):
     # fitness_dir created in 02.04.01_calculate_climate_outlier_fitness.ipynb
     print(ColorText('\nReading fitness matrices ...').bold().custom('gold'))
 
@@ -261,6 +261,9 @@ if __name__ == '__main__':
 
     assert op.basename(outerdir) == op.basename(outlier_outerdir)
     assert outerdir != outlier_outerdir
+    
+    # created in 02.04.01 or 02.04.06
+    fitness_dir = op.join(op.dirname(outlier_outerdir), 'fitness_mats')
 
     # print versions of packages and environment
     print(ColorText('\nEnvironment info :').bold().custom('gold'))
@@ -273,9 +276,6 @@ if __name__ == '__main__':
     # get some dirs
     garden_dir = op.join(outlier_outerdir, 'GF/garden_files')  # created in MVP_14_climate_outlier_fit_GF.py
     validation_dir = makedir(op.join(outlier_outerdir, 'GF/validation'))
-
-    # created in 02.04.01_calculate_climate_outlier_fitness.ipynb:
-    fitness_dir = '/home/b.lind/offsets/climate_outlier_runs/fitness_mats'
 
     lview, dview, cluster_id = start_engines(n=36, profile=f'climate_outlier_{op.basename(outlier_outerdir)}')
 
