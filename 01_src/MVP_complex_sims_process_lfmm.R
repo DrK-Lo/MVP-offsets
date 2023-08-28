@@ -77,8 +77,11 @@ pop.labels <- as.vector(
 # basename = paste0(seed, '_lfmm2_temp.RDS')  # K will be the same for _lfmm2_temp.RDS or _lfmm2_sal.RDS for this seed
 # K <- readRDS(paste(slimdir, basename, sep="/"))@K
 
-print('calculating lfmm2 offset ... ')
-offset <- genetic.offset(input=input, env=env, new.env=new.env, pop.labels=pop.labels, K=NULL, candidate.loci=cand_loci)
+# K was determined 02_analysis/05_multivariate_sims/determine_K_for_lfmm_complex_sims.ipynb
+
+
+print('calculating lfmm2 offset ... ')  # K=7 was determined in 02.05.11_determine_K_for_lfmm_complex_sims.ipynb
+offset <- genetic.offset(input=input, env=env, new.env=new.env, pop.labels=pop.labels, K=7, candidate.loci=cand_loci)
 
 print('converting offset to data.frame ...')
 offset_df = data.frame(offset)
