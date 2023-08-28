@@ -285,7 +285,7 @@ python MVP_10_train_lfmm2_offset.py {seed} {args.slimdir} {args.outdir} {args.em
     return lfmm_pids
 
 def execute_fst(seeds, args, gf_pids=None):
-    print(ColorText('Creating and sbatching Generalized Dissimilarity Modeling scripts ...').bold().custom('gold'))
+    print(ColorText('Creating and sbatching FST scripts ...').bold().custom('gold'))
 
     shdir = makedir(op.join(args.outdir, 'fst/shfiles'))
 
