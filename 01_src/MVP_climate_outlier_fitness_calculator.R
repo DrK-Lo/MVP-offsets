@@ -15,8 +15,12 @@
 # ----------
 # seed - simulation seed
 # output_file - where to save fitness calculation
-# opt1 - temperature or MTWetQ optimum for the common garden
-# opt0 - (optional) Env2 or mat optimum for the common garden
+# opt1 - temp or MTWetQ optimum for the common garden
+# opt0 - (optional) Env2 or MAT optimum for the common garden
+# opt2 - MTDQ
+# opt3 - PDM
+# opt4 - PwarmQ
+# opt5 - PWM
 # 
 #-----------------------------------------------------------------------------------#
 library('mvtnorm')
