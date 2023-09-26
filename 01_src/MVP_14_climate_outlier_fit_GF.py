@@ -131,9 +131,37 @@ python MVP_climate_outlier_GF_fitting.py {cmd_file}
     return shfiles
 
 
+def get_garden_files(outlier_outerdir):
+    """Get environmental data for climate novelty gardens."""
+    if op.basename(outlier_outerdir).startswith('1-trait'):  # Reduce 2-trait files to temperature only
+        
+        # identify 1-trait garden_dir for saving files
+        garden_dir = makedir(f'{op.dirname(outlier_outerdir)}/1-trait_garden_files')
+
+        if len(fs(garden_dir)) == 0:  # if 1-trait garden_dir doesn't exist, create it and the files
+            garden_dir = makedir(garden_dir)
+            print(f'{op.dirname(outlier_outerdir)}/garden_files')
+
+            # get 2-trait files and save as temp only
+            two_trait_files = fs(f'{op.dirname(outlier_outerdir)}/garden_files', endswith='.txt')
+
+            # reduce to temp only
+            for f in two_trait_files:
+                df = pd.read_table(f, index_col=0)['temp_opt'].to_frame()
+                new_f = f'{garden_dir}/{op.basename(f)}'
+                df.to_csv(new_f, sep='\t', index=True, header=True)
+        
+        new_envfiles = fs(garden_dir, endswith='.txt')
+
+    else:
+        new_envfiles = fs(op.join(op.dirname(outlier_outerdir), 'garden_files'), endswith='.txt')
+
+    return new_envfiles
+
+
 def main():
 
-    new_envfiles = fs(op.join(op.dirname(outlier_outerdir), 'garden_files'), endswith='.txt')
+    new_envfiles = get_garden_files(outlier_outerdir)
 
     cmd_files = set_up_fitting_cmds(new_envfiles)
 
