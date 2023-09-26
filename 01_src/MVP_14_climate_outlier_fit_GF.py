@@ -34,6 +34,8 @@ def set_up_fitting_cmds(new_envfiles):
     
     if 'tutorial' in outerdir:
         num_expected = 1
+    elif op.basename(outerdir).startswith('1-trait'):  # for directories only using temp (1-trait 0-nuisance)
+        num_expected = 45
     else:
         num_expected = 225
     
