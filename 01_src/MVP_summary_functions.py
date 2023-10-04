@@ -39,13 +39,15 @@ boxplot_kwargs = {  # kwargs for seaborn.catplot (boxplot) properties
                  'm-variable' : '#705eaa',        # matplotlib.colors.rgb2hex(sns.color_palette('Purples_r')[1])
                  'm-breaks' : '#8d89c0',          # matplotlib.colors.rgb2hex(sns.color_palette('Purples_r')[2])
                  
-                 '1-trait 1-env' : '#bce4b5',
-                 '1-trait 2-envs' : '#56b567',
-                 '1-trait 4-envs' : '#2c944c',
-                 '1-trait 5-envs' : '#05712f',
-                 '2-trait 2-envs' : '#04652a',
-                 '2-trait 4-envs' : '#034b1f',
-                 '2-trait 5-envs' : '#023215',
+                '1-trait 0-nuisance' : '#e9f7e5',
+                '1-trait 1-nuisance' : '#d3eecd',
+                '1-trait 3-nuisance' : '#b8e3b2',
+                '1-trait 4-nuisance' : '#98d594',
+                '2-trait 0-nuisance' : '#73c476',
+                '2-trait 2-nuisance' : '#4bb062',
+                '2-trait 3-nuisance' : '#2f974e',
+                '6-trait 0-nuisance' : '#157f3b',
+                '6-trait 3-nuisance' : '#006428',
                  
                  'N-equal_m-constant' : '#7dba91',  # rgb2hex(sns.color_palette('crest')[0])
                  'N-equal_m-breaks' : '#59a590',  # rgb2hex(sns.color_palette('crest')[1])
@@ -100,7 +102,10 @@ markers = {
     'lfmm2' : 'p',  # pentagon
     'GF' : 'o',  # circle
     'rda-nocorr' : 's',  # square
-    'rda-structcorr' : 'D'  # diamond
+    'rda-structcorr' : 'D',  # diamond,
+    'Est-Clines' : "3",  # 3 tri_left (not triangle)
+    'SS-Clines' : "+",  # + plus
+    'SS-Mtn' : "x",  # x X
 }
 
 
@@ -139,8 +144,8 @@ factor_names.update({  # update/overwrite factor_names with what I really want
     'slevel' : 'Selection\nStrength',
     'popsize_migration' : 'demography',
     'plevel_pleio' : 'pleiotropy',
-    'cor_TPR_temp' : "$\^p_{clinal, temp}$",
-    'cor_TPR_sal' : "$\^p_{clinal, Env2}$",
+    'cor_TPR_temp' : "$\^p_{cQTN, temp}$",
+    'cor_TPR_sal' : "$\^p_{cQTN, Env2}$",
     'final_LA' : 'Degree of\nlocal adaptation',
     'Residual' : 'Residual',
     'C(garden)' : 'Garden ID',
@@ -148,8 +153,8 @@ factor_names.update({  # update/overwrite factor_names with what I really want
     'final_LA:landscape' : 'final_LA:landscape',
     'final_LA:C(garden)' : 'final_LA:C(garden)',
     'final_LA:slevel' : 'final_LA:slevel',
-    'cor_FPR_temp_neutSNPs' : "$\^p_{clinal_{neutral}, temp}$",
-    'cor_FPR_sal_neutSNPs' : "$\^p_{clinal_{netural}, Env2}$",
+    'cor_FPR_temp_neutSNPs' : "$\^p_{cNeut, temp}$",
+    'cor_FPR_sal_neutSNPs' : "$\^p_{cNeut, Env2}$",
     'Intercept' : 'Intercept',
     'pleio' : 'Pleiotropy',
     'popsize' : 'Population Size',
@@ -171,10 +176,10 @@ factor_names.update({  # update/overwrite factor_names with what I really want
     '1-trait 2-envs' : '1-trait 1-nuisance',
     '2-trait 2-envs' : '2-trait 0-nuisance',
     '1-trait 1-env' : '1-trait 0-nuisance',
-    '1-trait 4-envs' : '1-trait 3-nuisance',
-    '2-trait 4-envs' : '2-trait 2-nuisance',
-    '1-trait 5-envs' : '1-trait 4-nuisance',
-    '2-trait 5-envs' : '2-trait 3-nuisance',
+    'sal-ISO-PSsd' : '1-trait 3-nuisance',  # 1-trait 4-envs
+    'ISO-PSsd' : '2-trait 2-nuisance',  # 2-trait 4-envs
+    'sal-ISO-TSsd-PSsd' : '1-trait 4-nuisance',  # 1-trait 5-envs
+    'ISO-TSsd-PSsd' : '2-trait 3-nuisance',  # 2-trait 5-envs
     'RONA-sal_opt' : 'RONA (Env2)',
     'RONA-temp_opt' : 'RONA (temp)',
     'block' : 'Population\nBlock',
@@ -190,6 +195,9 @@ factor_names.update({  # update/overwrite factor_names with what I really want
     'northwest' : 'northwest',
     'rangecenter' : 'range center',
     'southeast' : 'southeast',
+#     'Est-Clines' : "3",  # tri_left (not triangle)
+#     'SS-Clines' : "+",  # plus
+#     'SS-Mtn' : "x",  # vertical line
 #     '1-trait 1-env' : '1-causal 0-nuisance',
 #     '1-trait 2-envs' : '1-causal 1-nuisance',
 #     '2-trait 2-envs' : '2-causal 0-nuisance',
@@ -380,9 +388,9 @@ def get_summary_data():
     return df
 
 
-def subset_dataframe(df, num_traits=None, ntraits=None, marker_set=None, remove_structcrxn=False, keep_nuisance=True,
-    remove_rda_outliers=True, bcs=False):
-    """Subset dataframe to kwargs.
+def subset_dataframe(df, num_traits=None, ntraits=None, marker_set=None, remove_structcrxn=False,
+                     keep_nuisance=True, remove_rda_outliers=True, bcs=False):
+    """Subset performance dataframe to kwargs.
     
     Parameters
     ----------
@@ -433,7 +441,7 @@ def subset_dataframe(df, num_traits=None, ntraits=None, marker_set=None, remove_
 
 
 def get_1trait_data(df, ntraits=None, marker_set=None, remove_structcrxn=False, remove_rda_outliers=True):
-    """Subset dataframe for either 1-trait sims with no nuisance envs.
+    """Subset performance dataframe for either 1-trait sims with no nuisance envs.
     
     Parameters
     ----------
@@ -477,7 +485,7 @@ repdirs = ['/work/lotterhos/MVP-Offsets/run_20220919_0-225',
 @timer
 def combine_level_dicts(use_bcs_data=True, display_df=False, performance='garden_performance', repdirs=None,
                         add_1_trait=None, **kwargs):
-    """Across pipeline batches, combine garden performance scores into one pd.DataFrame.
+    """Across pipeline batches, combine garden performance scores into one performance pd.DataFrame.
 
     Parameters
     ----------
@@ -487,8 +495,10 @@ def combine_level_dicts(use_bcs_data=True, display_df=False, performance='garden
         print a df.head() or not
     performance : str
         one of 'garden_performance', or 'source_performance'
-    keep_nuisance : bool
-        a kwarg for subset_datafram() - whether to keep offset trained with non-adaptive nuisance envs
+    rep_dirs : list
+        a list of directories to retrieve offset performance info (default None will use all `repdirs` from above)
+    add_1_trait : bool
+        whether to include GF 1-trait 0-nuisance in performance output
     kwargs : dict
         passed to subset_dataframe()
     """
@@ -558,7 +568,7 @@ def combine_level_dicts(use_bcs_data=True, display_df=False, performance='garden
                 df = subset_dataframe(df, **kwargs)
 
                 if program == 'GF' and add_1_trait is True:                  
-                    # add in the 1-trait 1-env runs
+                    # add in the 1-trait 0-nuisance runs
                     pkl = pkl.replace('run_', '1-trait_run_')  # change directory name
                     onetrait_df = pklload(pkl)[program][performance]
 
@@ -632,7 +642,7 @@ def combine_program_data(scores) -> pd.DataFrame:
     return pd.concat(dfs)
 
 
-def subset_data_scores(scores, apply_median=True):
+def subset_data_scores(scores, apply_median=True, **kwargs):
     """Subset scores to kwargs.
     
     Parameters
@@ -645,7 +655,7 @@ def subset_data_scores(scores, apply_median=True):
     """
     data = {}
     for program in scores.keys():
-        df = scores[program].copy()
+        df = subset_dataframe(scores[program].copy(), **kwargs)
 
 #         seed = df.index.tolist()[0]
         print(program, df.seed.value_counts().unique())  # Counter(df.seed)[seed])
@@ -708,7 +718,8 @@ def latest_commit():
 
 
 def add_legend(fig_object, fontsize=11, color_by='marker_set', loc='upper left', bbox_to_anchor=None, ncol=1,
-               only_rda=False, use_markers=False, legendmarkerfacecolor='fill', exclude_RONA=False, one_trait=False):
+               only_rda=False, use_markers=False, legendmarkerfacecolor='fill', exclude_RONA=False,
+               one_trait=False, markeredgecolor=None):
     """Add pretty legend to figure, `fig_object`.
     
     Parameters
@@ -735,10 +746,12 @@ def add_legend(fig_object, fontsize=11, color_by='marker_set', loc='upper left',
     
     one_trait : bool
         whether to exclude RONA_sal-opt when color_by == 'program'
+    markeredgecolor : str | tuple(R, G, B)
+        color of shape edge in legend
     """
        
     # i often iterate hue_order, so I don't want to go back and have to exclude these when iterating in other notebooks
-    if color_by in ['1-trait', '2-trait']:
+    if color_by in ['1-trait', '2-trait', '6-trait']:
         hue_order[color_by] = [
             nuis_level for nuis_level in boxplot_kwargs['palette'] if nuis_level.startswith(color_by)
         ]
@@ -784,7 +797,7 @@ def add_legend(fig_object, fontsize=11, color_by='marker_set', loc='upper left',
 
         handles.append(
             Line2D([0], [0], marker=marker, color='none', markerfacecolor=markerfacecolor,
-                   markeredgecolor=color if level != 'rda outliers' else 'black',
+                   markeredgecolor=markeredgecolor if markeredgecolor else color if level != 'rda outliers' else 'black',
                    label=factor_names[level], markersize=fontsize)
         )
 
@@ -841,7 +854,9 @@ def read_params_file():
     -----
     - code based on processing notebooks in 02_analysis/01_summary_figs_and_pipeline_output_processing
     """
+    summary = get_summary_data()
     params = mvp10.read_params_file('/home/b.lind/offsets/run_20220919_0-225/slimdir')
+    params['final_LA'] = params.index.map(summary.final_LA)
     
     for seed in pbar(params.index):
         glevel, plevel, _blank_, landscape, popsize, *migration = params.loc[seed, 'level'].split("_")
