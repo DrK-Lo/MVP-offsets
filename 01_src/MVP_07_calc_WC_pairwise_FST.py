@@ -41,7 +41,7 @@ def get_gt_data():
         '\nConverting minor allele counts to scikit.allel format ...'
     ).bold().custom('gold'))
 
-    # map minor allele count to genotypes for scikit allel
+    # map derived allele count to genotypes for scikit allel
     z12_trans = {
         0 : [0,0],  # zero derived alleles almost always means homozygous REF
         1 : [0,1],
