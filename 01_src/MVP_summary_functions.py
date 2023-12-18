@@ -38,16 +38,16 @@ boxplot_kwargs = {  # kwargs for seaborn.catplot (boxplot) properties
                  'm-constant' : '#572c92',        # matplotlib.colors.rgb2hex(sns.color_palette('Purples_r')[0])
                  'm-variable' : '#705eaa',        # matplotlib.colors.rgb2hex(sns.color_palette('Purples_r')[1])
                  'm-breaks' : '#8d89c0',          # matplotlib.colors.rgb2hex(sns.color_palette('Purples_r')[2])
-                 
-                '1-trait 0-nuisance' : '#e9f7e5',
-                '1-trait 1-nuisance' : '#d3eecd',
-                '1-trait 3-nuisance' : '#b8e3b2',
-                '1-trait 4-nuisance' : '#98d594',
-                '2-trait 0-nuisance' : '#73c476',
-                '2-trait 2-nuisance' : '#4bb062',
-                '2-trait 3-nuisance' : '#2f974e',
-                '6-trait 0-nuisance' : '#157f3b',
-                '6-trait 3-nuisance' : '#006428',
+
+                 '1-trait 0-nuisance' : '#e9f7e5',
+                 '1-trait 1-nuisance' : '#d3eecd',
+                 '1-trait 3-nuisance' : '#b8e3b2',
+                 '1-trait 4-nuisance' : '#98d594',
+                 '2-trait 0-nuisance' : '#73c476',
+                 '2-trait 2-nuisance' : '#4bb062',
+                 '2-trait 3-nuisance' : '#2f974e',
+                 '6-trait 0-nuisance' : '#157f3b',
+                 '6-trait 3-nuisance' : '#006428',
                  
                  'N-equal_m-constant' : '#7dba91',  # rgb2hex(sns.color_palette('crest')[0])
                  'N-equal_m-breaks' : '#59a590',  # rgb2hex(sns.color_palette('crest')[1])
@@ -76,6 +76,19 @@ boxplot_kwargs = {  # kwargs for seaborn.catplot (boxplot) properties
                  'northwest' : (0.38407269378943537, 0.46139018782416635, 0.7309466543290268),
                  'rangecenter' : (0.18488035509396164, 0.07942573027972388, 0.21307651648984993),
                  'southeast' : (0.6980608153581771, 0.3382897632604862, 0.3220747885521809),
+
+                 'Est-Clines_1-trait': 'orange',
+                 'Est-Clines_equal-S': 'k',
+                 'Est-Clines_unequal-S': 'darkgray',
+                 'SS-Clines_1-trait': 'orange',
+                 'SS-Clines_equal-S': 'k',
+                 'SS-Clines_unequal-S': 'darkgray',
+                 'SS-Mtn_1-trait': 'orange',
+                 'SS-Mtn_equal-S': 'k',
+                 'SS-Mtn_unequal-S': 'darkgray',
+                 '1-trait single-S' : 'orange',
+                 '2-trait equal-S' : 'k',
+                 '2-trait unequal-S' : 'darkgray'
                 },
     
     'whiskerprops' : {'color' : '#bebebe'},
@@ -106,6 +119,15 @@ markers = {
     'Est-Clines' : "3",  # 3 tri_left (not triangle)
     'SS-Clines' : "+",  # + plus
     'SS-Mtn' : "x",  # x X
+    'Est-Clines_1-trait' : "3",
+    'Est-Clines_equal-S' : "3",
+    'Est-Clines_unequal-S' : "3",
+    'SS-Clines_1-trait' : "+",
+    'SS-Clines_equal-S' : "+",
+    'SS-Clines_unequal-S' : "+",
+    'SS-Mtn_1-trait' : "x",
+    'SS-Mtn_equal-S' : "x",
+    'SS-Mtn_unequal-S' : "x"
 }
 
 
@@ -144,8 +166,8 @@ factor_names.update({  # update/overwrite factor_names with what I really want
     'slevel' : 'Selection\nStrength',
     'popsize_migration' : 'demography',
     'plevel_pleio' : 'pleiotropy',
-    'cor_TPR_temp' : "$\^p_{cQTN, temp}$",
-    'cor_TPR_sal' : "$\^p_{cQTN, Env2}$",
+    'cor_TPR_temp' : "$p_{cQTN, temp}$",
+    'cor_TPR_sal' : "$p_{cQTN, Env2}$",
     'final_LA' : 'Degree of\nlocal adaptation',
     'Residual' : 'Residual',
     'C(garden)' : 'Garden ID',
@@ -153,8 +175,8 @@ factor_names.update({  # update/overwrite factor_names with what I really want
     'final_LA:landscape' : 'final_LA:landscape',
     'final_LA:C(garden)' : 'final_LA:C(garden)',
     'final_LA:slevel' : 'final_LA:slevel',
-    'cor_FPR_temp_neutSNPs' : "$\^p_{cNeut, temp}$",
-    'cor_FPR_sal_neutSNPs' : "$\^p_{cNeut, Env2}$",
+    'cor_FPR_temp_neutSNPs' : "$p_{cNeut, temp}$",
+    'cor_FPR_sal_neutSNPs' : "$p_{cNeut, Env2}$",
     'Intercept' : 'Intercept',
     'pleio' : 'Pleiotropy',
     'popsize' : 'Population Size',
@@ -195,6 +217,20 @@ factor_names.update({  # update/overwrite factor_names with what I really want
     'northwest' : 'northwest',
     'rangecenter' : 'range center',
     'southeast' : 'southeast',
+    'landscape-slevel' : 'Landscape x Selection Strength',
+    'Est-Clines_1-trait': 'Estuary - Clines single-trait',
+    'SS-Clines_1-trait': 'Stepping Stone - Clines single-trait',
+    'SS-Mtn_1-trait': 'Stepping Stone - Mountain single-trait',
+    'Est-Clines_equal-S': 'Estuary - Clines equal-S',
+    'SS-Clines_equal-S': 'Stepping Stone - Clines equal-S',
+    'SS-Mtn_equal-S': 'Stepping Stone - Mountain equal-S',
+    'Est-Clines_unequal-S': 'Estuary - Clines unequal-S',
+    'SS-Clines_unequal-S': 'Stepping Stone - Clines unequal-S',
+    'SS-Mtn_unequal-S': 'Stepping Stone - Mountain unequal-S',
+    'slevel_plus1' : 'Trait x Selection Strength',
+    '1-trait single-S' : '1-trait single-S',
+    '2-trait equal-S' : '2-trait equal-S',
+    '2-trait unequal-S' : '2-trait unequal-S'
 #     'Est-Clines' : "3",  # tri_left (not triangle)
 #     'SS-Clines' : "+",  # plus
 #     'SS-Mtn' : "x",  # vertical line
@@ -757,7 +793,12 @@ def add_legend(fig_object, fontsize=11, color_by='marker_set', loc='upper left',
         ]
     elif color_by == 'block':
         hue_order[color_by] = ['northwest', 'rangecenter', 'southeast']
-    
+    elif color_by == 'landscape-slevel':
+        hue_order[color_by] = ['Est-Clines_1-trait', 'Est-Clines_equal-S', 'Est-Clines_unequal-S', 'SS-Clines_1-trait',
+                               'SS-Clines_equal-S', 'SS-Clines_unequal-S', 'SS-Mtn_1-trait', 'SS-Mtn_equal-S',
+                               'SS-Mtn_unequal-S']
+    elif color_by == 'slevel_plus1':
+        hue_order[color_by] = ['1-trait single-S', '2-trait equal-S', '2-trait unequal-S']
         
     # legend attributes
     legend_title = factor_names[color_by]
@@ -808,7 +849,7 @@ def add_legend(fig_object, fontsize=11, color_by='marker_set', loc='upper left',
     leg1.get_title().set_multialignment('center')
 
     # remove from dict
-    if color_by.endswith('-trait') or color_by == 'block':
+    if color_by.endswith('-trait') or color_by in ['landscape-slevel', 'block', 'slevel_plus1']:
         hue_order.pop(color_by)
 
     return leg1
@@ -877,5 +918,7 @@ def read_params_file():
             [glevel,    plevel,   pleio,   slevel,   landscape,   popsize,   migration]
         ):
             params.loc[seed, column] = val
+
+    params['landscape-slevel'] = params.landscape + '_' + params.slevel.fillna('1-trait')
             
     return params
