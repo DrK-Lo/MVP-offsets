@@ -4,7 +4,8 @@
 #
 # Notes
 # -----
-# only include environmental optima (eg opt0, opt1) if they are underlying selection
+# - only include environmental optima (eg opt0, opt1) if they are underlying selection
+# - validated in 02.04.00
 #
 # Usage
 # -----
@@ -104,7 +105,11 @@ for (transplant_ID in 1:100){
                        subset[subset$subpopID == transplant_ID, 'phen_temp'])
         opts = c(opt0, opt1)
         
-        fitness_varcov = matrix(c(sigma_k0, 0, 0, sigma_k1), nrow=2)
+        fitness_varcov = matrix(
+            c(sigma_k0, 0,
+              0, sigma_k1),
+            nrow=2
+        )
         fitness_norm = dmvnorm(c(0.0, 0.0), c(0.0, 0.0), fitness_varcov)
         
         fits = dmvnorm(
