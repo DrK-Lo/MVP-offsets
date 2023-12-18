@@ -4,12 +4,14 @@
 # Notes
 # -----
 # - this is from Lind et al. Revision Release 10.5281/zenodo.7641224
+#    - except for the addition of the outfile trailing arg
 #-----------------------------------------------------------------------------------------------------#
 
 library(gradientForest)
 
 args = commandArgs(trailingOnly=TRUE)
 rdsfile = args[1]
+outfile = args[2]
 
 rds = readRDS(rdsfile)
 
@@ -27,9 +29,9 @@ df = merge(df, df3, by='row.names', all=TRUE)
 rownames(df) = df[,'Row.names']
 df = subset(df, select=-c(Row.names))
 
-outfile <- gsub(".RDS", "_importances.txt", rdsfile)
+# outfile <- gsub(".RDS", "_importances.txt", rdsfile)
 
-write.table(df, outfile, sep='	', row.names=TRUE)
+write.table(df, outfile, sep='\t', row.names=TRUE)
 
 print("wrote to outfile:")
 print(outfile)
