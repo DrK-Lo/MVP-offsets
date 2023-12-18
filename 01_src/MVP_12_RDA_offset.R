@@ -547,6 +547,8 @@ create_garden_data <- function(garden_climates, subset, subpopID, ntraits){
     } else if (ntraits == 6) {
         envs = c('env1_mat', 'env2_MTWetQ', 'env3_MTDQ', 'env4_PDM', 'env5_PwarmQ', 'env6_PWM')
 
+    } else if (ntraits == 9) {
+        envs = c('env1_mat', 'env2_MTWetQ', 'env3_MTDQ', 'env4_PDM', 'env5_PwarmQ', 'env6_PWM', 'ISO', 'PSsd', 'TSsd')
     } else {
         stop(sprintf('unexepected ntraits = %s', ntraits))
     }
