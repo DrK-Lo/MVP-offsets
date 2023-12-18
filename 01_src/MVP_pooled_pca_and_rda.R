@@ -286,13 +286,13 @@ main = function(args){
     snpfile <<- args[3]
     outerdir <<- args[4]
     mvp_dir <<- args[5]
-    ind_or_pooled <<- 'pooled'  # for MVP_RDA_offset::get_curr_envdata
+    ind_or_pooled <<- 'pooled'  # for MVP_12_RDA_offset::get_curr_envdata
     
     # import functions
     options(run.main=FALSE)
     source(paste0(mvp_dir, '/MVP_12_RDA_offset.R'))
     
-    # directories of files created in MVP_01.py - set globally for MVP_RDA_offset.R::get_curr_envdata
+    # directories of files created in MVP_01.py - set globally for MVP_12_RDA_offset.R::get_curr_envdata
     gf_training_dir <<- paste0(outerdir, '/gradient_forests/training/training_files')
     
     # do PCA
