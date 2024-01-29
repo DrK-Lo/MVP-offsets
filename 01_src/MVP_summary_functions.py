@@ -534,7 +534,7 @@ def combine_level_dicts(use_bcs_data=True, display_df=False, performance='garden
     rep_dirs : list
         a list of directories to retrieve offset performance info (default None will use all `repdirs` from above)
     add_1_trait : bool
-        whether to include GF 1-trait 0-nuisance in performance output
+        whether to include GF 1-trait 0-nuisance in performance output - default overwritten in `if` statment below
     kwargs : dict
         passed to subset_dataframe()
     """
@@ -601,8 +601,6 @@ def combine_level_dicts(use_bcs_data=True, display_df=False, performance='garden
             for program in level_scores.keys():
                 df = level_scores[program][performance].copy()
 
-                df = subset_dataframe(df, **kwargs)
-
                 if program == 'GF' and add_1_trait is True:                  
                     # add in the 1-trait 0-nuisance runs
                     pkl = pkl.replace('run_', '1-trait_run_')  # change directory name
@@ -612,6 +610,8 @@ def combine_level_dicts(use_bcs_data=True, display_df=False, performance='garden
                     onetrait_df['program'] = program
 
                     df = pd.concat([df, onetrait_df])
+
+                df = subset_dataframe(df, **kwargs)
 
                 data[program] = df
 
