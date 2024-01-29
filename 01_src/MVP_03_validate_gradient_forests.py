@@ -7,6 +7,8 @@ URGENT NOTES
     - I also exclude _ind_ in the fs function within get_offset_predictions (two fs functions!)
     - if removed, MVP_01 and MVP_02 need to be updated as well
     - I also added input arg `expected` so I can do cross val etc without breaking script
+- I updated the script to expect only pooled samples by default, but by ...
+    adding on to trailing `expected` arg I can expect individual samples only
 
 Usage
 -----
@@ -64,14 +66,14 @@ def load_ind_fitness_matrix(slimdir, seed, subset):
     return fitness
 
 
-def get_offset_predictions(seed, expected=300):
+def get_offset_predictions(seed, expected=300, exclude='_ind_'):
     """Get offset predictions output by MVP_02_fit_gradient_forests.py."""
     print(ColorText('\nRetrieving predicted offsets ...').bold().custom('gold'))
     # get the predicted offset from files output from fitting created in ../02_fit_gradient_forests.ipynb
-    files = fs(fitting_dir, endswith='offset.txt', startswith=f'{seed}', exclude='_ind_')  # CHANGE!
+    files = fs(fitting_dir, endswith='offset.txt', startswith=f'{seed}', exclude=exclude)  # CHANGE!
 
     # make sure just as many RDS files were created from fitting script (ie that all fitting finished)
-    rdsfiles = fs(fitting_dir, endswith='.RDS', startswith=f'{seed}', exclude='_ind_')
+    rdsfiles = fs(fitting_dir, endswith='.RDS', startswith=f'{seed}', exclude=exclude)
 #     assert len(files) == len(rdsfiles) == 600, (len(files), len(rdsfiles))  # 100 gardens * 3 marker sets * ind_or_pooled
     assert len(files) == len(rdsfiles) == expected, (len(files), len(rdsfiles))  # 100 gardens * 3 marker sets
 
@@ -652,7 +654,7 @@ def main(expected):
                    'pooled': mvp06.load_pooled_fitness_matrix(slimdir, seed)}
     
     # get predicted offset
-    offset_dfs = get_offset_predictions(seed, expected)
+    offset_dfs = get_offset_predictions(seed, expected, exclude)
     
     # calculate validation scores
     performance_dicts = calculate_performance(offset_dfs, fitness_mat, popsamps, samppop)
@@ -672,6 +674,10 @@ if __name__ == '__main__':
     
     if len(expected) > 0:
         expected = expected[0]
+        if len(expected) > 1 and expected[1] == 'pooled':
+            exclude = '_pooled_'
+        else:
+            exclude = '_ind_'
     else:
         expected = 300
 

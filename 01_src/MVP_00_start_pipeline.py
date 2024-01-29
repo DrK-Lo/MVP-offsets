@@ -8,7 +8,6 @@ MVP_00_start_pipeline.py -s SLIMDIR -o OUTDIR -e EMAIL -c CONDADIR
 
 TODO
 ----
-- replace r35 with gf_env - multiple places
 - add option for number of engines?
 - warn about dependencies
     - a user could run other offsets assuming they already ran dependency offset scripts

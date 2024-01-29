@@ -6,11 +6,13 @@ URGENT NOTES
     - this script now only asserts 3 predfiles (assert len(predfile))
     - I also added exclude='_ind_' in the fs function of run_fit_gradient_forests
     - if removed, MVP_01 and MVP_03 also need to be updated
+- I updated the script to expect only pooled samples by default, but with ...
+    new trailing `exclude` arg I can expect individual samples only
 
 Usage
 -----
 conda activate mvp_env
-python MVP_01_fit_gradient_forests.py seed slimdir training_outdir rscript_exe
+python MVP_01_fit_gradient_forests.py seed slimdir training_outdir rscript_exe [exclude]
 
 Parameters
 ----------
@@ -21,6 +23,8 @@ slimdir (not used)
 rscript_exe
     path to R environment's Rscript executable - eg ~/anaconda3/envs/gf_env/bin/Rscript
     R environment must be able to `library(gradientforests)`
+exclude (optional)
+    if included and set to "pooled" will exclude pooled files instead of individual files
 
 Notes
 -----
@@ -156,12 +160,12 @@ def handle_dead_jobs(jobs, args):
     pass
 
 
-def run_fit_gradient_forests(garden_files):
+def run_fit_gradient_forests(garden_files, exclude):
     """Parallelize fitting of gradient forests model to future climates of transplant locations."""
     print(ColorText('\nFitting gradient forest models to common garden climates ...').bold().custom('gold'))
 
     # get the RDS output from training
-    predfiles = fs(training_outdir, pattern=f'{seed}_', endswith='predOut.RDS', exclude='_ind_')
+    predfiles = fs(training_outdir, pattern=f'{seed}_', endswith='predOut.RDS', exclude=exclude)
 #     assert len(predfiles) == 6, (len(predfiles), predfiles)  # ind_all ind_adaptive ind_neural, pooled_all pooled_adaptive, pooled_neutral
     assert len(predfiles) == 3, (len(predfiles), predfiles)  # pooled_all pooled_adaptive, pooled_neutral
 
@@ -218,7 +222,7 @@ def main():
     garden_files = create_garden_files(envdfs, envfiles)
 
     # parallelize fit of GF models to climates of each common garden (transplant location aka future climate)
-    run_fit_gradient_forests(garden_files)
+    run_fit_gradient_forests(garden_files, exclude)
 
     # DONE!
     print(ColorText('\nShutting down engines ...').bold().custom('gold'))
@@ -230,12 +234,18 @@ def main():
 
 if __name__ == '__main__':
     # get input args
-    thisfile, seed, slimdir, training_outdir, rscript_exe = sys.argv
+    thisfile, seed, slimdir, training_outdir, rscript_exe, *exclude = sys.argv
 
     print(ColorText(f'\nStarting {op.basename(thisfile)} ...').bold().custom('gold'))
 
     # set up timer
     t1 = dt.now()
+    
+    # a hacky way I can have script expect either individual or pooled samples
+    if len(exclude) > 0 and exclude[0] == 'pooled':
+        exclude = '_pooled_'
+    else:
+        exclude = '_ind_'
 
     # create dirs
     garden_dir, fitting_dir, training_filedir = make_fitting_dirs(training_outdir)
