@@ -75,7 +75,7 @@ def get_offset_predictions(seed, expected=300, exclude='_ind_'):
     # make sure just as many RDS files were created from fitting script (ie that all fitting finished)
     rdsfiles = fs(fitting_dir, endswith='.RDS', startswith=f'{seed}', exclude=exclude)
 #     assert len(files) == len(rdsfiles) == 600, (len(files), len(rdsfiles))  # 100 gardens * 3 marker sets * ind_or_pooled
-    assert len(files) == len(rdsfiles) == expected, (len(files), len(rdsfiles))  # 100 gardens * 3 marker sets
+    assert len(files) == len(rdsfiles) == int(expected), (len(files), len(rdsfiles))  # 100 gardens * 3 marker sets
 
     outfiles = wrap_defaultdict(dict, 3)
     for outfile in files:
@@ -670,21 +670,23 @@ def main(expected):
 
 if __name__ == '__main__':
     # get input args
-    thisfile, seed, slimdir, gf_parentdir, *expected = sys.argv
-    
-    if len(expected) > 0:
-        expected = expected[0]
-        if len(expected) > 1 and expected[1] == 'pooled':
-            exclude = '_pooled_'
-        else:
-            exclude = '_ind_'
-    else:
-        expected = 300
+    thisfile, seed, slimdir, gf_parentdir, *trailing = sys.argv
 
     print(ColorText(f'\nStarting {op.basename(thisfile)} ...').bold().custom('gold'))
 
     # set up timer
     t1 = dt.now()
+    
+    # determine trailing optional args
+    if len(trailing) > 0:
+        expected = trailing[0]
+        if len(trailing) > 1 and trailing[1] == 'pooled':
+            exclude = '_pooled_'
+        else:
+            exclude = '_ind_'
+    else:
+        expected = 3
+        exclude = '_ind_'
     
     # background color for figures
     background_cmap = create_cmap(['white', 'gold'], grain=1000)
