@@ -160,14 +160,14 @@ def handle_dead_jobs(jobs, args):
     pass
 
 
-def run_fit_gradient_forests(garden_files, exclude):
+def run_fit_gradient_forests(garden_files, expected=3, exclude='_ind_'):
     """Parallelize fitting of gradient forests model to future climates of transplant locations."""
     print(ColorText('\nFitting gradient forest models to common garden climates ...').bold().custom('gold'))
 
     # get the RDS output from training
     predfiles = fs(training_outdir, pattern=f'{seed}_', endswith='predOut.RDS', exclude=exclude)
 #     assert len(predfiles) == 6, (len(predfiles), predfiles)  # ind_all ind_adaptive ind_neural, pooled_all pooled_adaptive, pooled_neutral
-    assert len(predfiles) == 3, (len(predfiles), predfiles)  # pooled_all pooled_adaptive, pooled_neutral
+    assert len(predfiles) == int(expected), (len(predfiles), predfiles, expected)  # pooled_all pooled_adaptive, pooled_neutral
 
     # run parallelization
     jobs = []
@@ -222,7 +222,7 @@ def main():
     garden_files = create_garden_files(envdfs, envfiles)
 
     # parallelize fit of GF models to climates of each common garden (transplant location aka future climate)
-    run_fit_gradient_forests(garden_files, exclude)
+    run_fit_gradient_forests(garden_files, expected=expected, exclude=exclude)
 
     # DONE!
     print(ColorText('\nShutting down engines ...').bold().custom('gold'))
@@ -234,7 +234,7 @@ def main():
 
 if __name__ == '__main__':
     # get input args
-    thisfile, seed, slimdir, training_outdir, rscript_exe, *exclude = sys.argv
+    thisfile, seed, slimdir, training_outdir, rscript_exe, *trailing = sys.argv
 
     print(ColorText(f'\nStarting {op.basename(thisfile)} ...').bold().custom('gold'))
 
@@ -242,9 +242,14 @@ if __name__ == '__main__':
     t1 = dt.now()
     
     # a hacky way I can have script expect either individual or pooled samples
-    if len(exclude) > 0 and exclude[0] == 'pooled':
-        exclude = '_pooled_'
+    if len(trailing) > 0:
+        expected = trailing[0]
+        if len(trailing) > 1 and trailing[1] == 'pooled':
+            exclude = '_pooled_'
+        else:
+            exclude = '_ind_'
     else:
+        expected = 3
         exclude = '_ind_'
 
     # create dirs
