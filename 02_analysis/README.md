@@ -1,4 +1,4 @@
-# 02_analyis
+# 02_analysis
 
 This directory contains jupyter notebooks used to process, analyze, and visualize results. Code within these directories also initiate training and validation of offset models from the *Climate Novelty* and *Nuisance Environment* workflows.
 
