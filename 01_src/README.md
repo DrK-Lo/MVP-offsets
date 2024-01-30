@@ -1,70 +1,9 @@
-# MVP Pipeline
+# MVP Scripts
 
-Code used to autonomously process output from the MVP Project simulations. Code is assumed to be run in the order presented here; in some cases downstream code depends on files created from upstream execution, see docstrings.
-
-This pipeline assumes all files from a particular seed are in the same folder given as `slimdir` input arguments given to .py scripts.
-
----
-## Cloning and setting up the MVP-offsets repository for production runs
-Before running scripts, users will need to set up the Anaconda environments below. First, however, the MVP-offsets repository will need to be cloned to the local computer.
-
-After cloning, export the path of the 01_src directory to PYTHONPATH within `$HOME/.bashrc`:
-
-```
-export PYTHONPATH="${PYTHONPATH}:/path/to/MVP-offsets/01_src"
-```
-
----
-## Conda environments
-Various [Anaconda environments](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) are used across scripts. Users will need to install Anaconda (not miniconda) and be sure to allow the conda init within $HOME/.bashrc (you should be prompted during install).
-
-**1. Python environment**
-  - this python (v3.8.5) environment is used to start the pipeline and run all .py scripts in the repository
-  - most python scripts depend on cloning [pythonimports from Brandon Lind](https://github.com/brandonlind/pythonimports). After cloning, create the environment by executing (after updating path):`conda env create -n mvp_env -f /path/to/pythonimports/py385.yml`. The path of the cloned repository will need to be exported to the PYTHONPATH within `$HOME/.bashrc` :
-
-```
-export PYTHONPATH="${PYTHONPATH}:/path/to/pythonimports"
-```
-
-  - activate the mvp_env environment (`conda activate mvp_env`), then: `conda install -c conda-forge scikit-allel`
-
-**2. Gradient Forests environment**
-  - this R (v3.5) environment is used to run the GradientForests package v0.1-18
-  - create this environment with the following command (updating path): `conda create -n r35 -f /path/to/MVP-offsets/01_src/gf_env.yml`
-  - activate the gf_env environment (`conda activate r35`) then install GradientForests: `R CMD INSTALL /path/to/MVP-offsets/01_src/gradientForest_0.1-18.tar.gz`
-  - open R, then: 
-     -  `install.packages(data.table)`
-     -  `install.packages(rgeos)`
-     -  `install.packages(raster)`
-
-**3. LFMM2/LEA + RDA environment**
-  - this R (v4.0.3) environment is used to run lfmm2 from the LEA2 package, as well as redundancy analysis (RDA)
-  - to retrieve the .yml file clone the [MVP-NonClinalAF repository](https://github.com/ModelValidationProgram/MVP-NonClinalAF/blob/main/src/env/MVP_env_R4.0.3.yml)
-  - create this environment with the following command (updating path): `conda create -n lea_env -f /path/to/MVP-NonClinalAF/src/env/MVP_env_R4.0.3.yml`
-
-
----
-## Pipelines
-### Genetic Offset Pipeline
-
-These scripts (MVP_00.py through MVP_13.py, and their dependencies) use simulations from [Lotterhos 2023](https://doi.org/10.1101/2022.08.03.502621) to train and validate the following genetic offset methods: Gradient Forests, the Risk Of Non-Adaptedness, LFMM, and redundancy analysis-based offset (RDA).
-
-MVP_00_start_pipeline.py is used to kickstart this pipeline. Flags used will determine which offset method is run. See usage below.
-
-### Climate outlier scenario pipeline
-
-These scripts (MVP_14.py through MVP_21.py, and their dependencies) use trained models output from the Genetic Offset Pipeline to predict offset to climate scenarios that do not appear in the training data. Each offset method is run manually; the following will train and validate climate scenarios: MVP_14.py, MVP_16.py, MVP_18.py, MVP_20.py.
-
----
-## Scripts
-
-.
-
-NOTE: See docstrings within each script for more info and usage. See functions' docstrings within each script for more detail.
-
-.
+See docstrings within each script for more info and usage. See functions' docstrings within each script for more detail.
 
 ### MVP_00_start_pipeline.py
+Script used to kick off the Adaptive Environment workflow.
 ```
 usage: MVP_00_start_pipeline.py -s SLIMDIR -o OUTDIR -e EMAIL -c CONDADIR [--gf] [--rona] [--gdm] [--lfmm] [--rda] [--all] [-h]
 
@@ -102,7 +41,6 @@ required arguments:
 
 Train Gradient Forests using simulations from the MVP project. Calls MVP_gf_training_script.R, MVP_02_fit_gradient_forests.py and MVP_03_validate_gradient_forests.py. Called from MVP_00_start_pipeline.execute_gf.
 
-
 ### MVP_02_fit_gradient_forests.py
 
 Fit trained models from gradient forests to the climate of a transplant location (ie the populations in the simulation). Calls MVP_gf_fitting_script.R. Called from MVP_01_train_gradient_forests.py.
@@ -111,6 +49,10 @@ Fit trained models from gradient forests to the climate of a transplant location
 
 Using the predicted offset from trained models of GF and the known fitness of individuals (or mean population fitness) within/across subpops to calculate Kendall's tau. Visualize performance using figures on a per-seed level. Called from MVP_01_train_gradient_forests.py.
 
+### MVP_04_env_importance_from_gradient_forests.R
+
+From a saved RDS object output from gradient forest training, extract predictor importance and save. Called from 02_analysis/10_supplemental/02_env_importance.ipynb.
+
 ### MVP_05_train_RONA.py
 
 Calculate the Risk Of Non-Adaptedness for each subpopulation transplanted to all others. Called from MVP_00_start_pipeline.execute_rona.
@@ -118,6 +60,10 @@ Calculate the Risk Of Non-Adaptedness for each subpopulation transplanted to all
 ### MVP_06_validate_RONA.py
 
 Validate RONA with mean individual fitness per pop from the simulation data. Called from MVP_00_start_pipeline.execute_rona.
+
+### MVP_07_calc_WC_pairwise_FST.py
+
+Calculate population pairwise FST according to Weir & Cockerham 1984.  Called from MVP_00_start_pipeline.execute_fst.
 
 ### MVP_10_train_lfmm2_offset.py
 
@@ -145,7 +91,7 @@ Validate climate outlier offset predictions for Gradient Forests. Called from MV
 
 ### MVP_16_climate_outlier_lfmm.py
 
-Set up scripts to work with MVP_process_lfmm.R scripts created in the MVP offset pipeline, passing new environmental data of climate outlier scenarios. Calls MVP_17_climate_outlier_validate_lfmm.py. Called manually.
+Set up scripts to work with MVP_process_lfmm.R scripts created in the MVP offset pipeline, passing new environmental data of climate outlier scenarios. Calls MVP_17_climate_outlier_validate_lfmm.py, MVP_process_lfmm.R OR MVP_complex_sims_process_lfmm.R. Called manually.
 
 ### MVP_17_climate_outlier_validate_lfmm.py
 
@@ -167,12 +113,57 @@ Train and validate the Risk Of Non-Adaptedness on outlier climate scenarios. Cal
 
 Gather across seeds from output from MVP_climate_outlier_RONA_train_and_validate_seed.py. Called from MVP_20_climate_outlier_train_and_validate_RONA.py.
 
+### MVP_climate_outlier_fitness_calculator.R
 
+Calculate fitness for all populations to a garden environment with temp optimimum
 
+### MVP_climate_outlier_GF_fitting.py
 
+Fit trained GF models to climate outlier climates. Called from MVP_14_climate_outlier_fit_GF.py.
 
+### MVP_climate_outlier_RDA_offset.R
 
+Run RDA offset analysis sensu Capblancq & Forester 2021 on novelty climate scenarios. Called by MVP_18_climate_outlier_rda.py.
 
+### MVP_climate_outlier_RONA_train_and_validate_seed.py
+
+Calculate and validate RONA to climate outlier scenarios for a specific seed. Called by MVP_20_climate_outlier_train_and_validate_RONA.py.
+
+### MVP_complex_sims_process_lfmm.R
+
+Use lfmm2 to predict genetic offset to future climates for complex sims. Called by MVP_16_climate_outlier_lfmm.py.
+
+### MVP_gf_fitting_script.R
+
+Given a trained gradient forest, fit model to input climate data, `garden_data`.
+
+### MVP_gf_training_script.R
+
+Given a set of populations, allele freqs, and environmental data, train gradient forests.
+
+### MVP_nuisance_RDA_offset.R
+
+Run MVP_12_RDA_offset.R but with some functions specific to nuisance experiments. Called from 02_analysis/07_experiments/02_nuisance_envs/06_train_and_validate_nuisance_RDA.ipynb.
+
+### MVP_nuisance_rda_validation.py
+
+Validate offset predictions from RDA (sensu Capblancq & Forester) using population mean fitness. Called from 02_analysis/07_experiments/02_nuisance_envs/06_train_and_validate_nuisance_RDA.ipynb.
+
+### MVP_pooled_pca_and_rda.R
+
+Estimate PCs for pooled data for use in MVP_12_RDA_offset.R. Called from MVP_00_start_pipeline.py.execute_rda.
+
+### MVP_process_lfmm.R
+
+Use lfmm2 to predict genetic offset to future climates. Called from MVP_10_train_lfmm2_offset.py and MVP_16_climate_outlier_lfmm.py.
+
+### MVP_summary_functions.py
+
+API and functions used to create figs across scripts that summarize output. Called from most scripts and notebooks.
+
+### MVP_watch_for_failure_of_train_lfmm2_offset.py
+
+If a job fails, find the commands that failed and try again, repeat process until all jobs are completed successfully. Called from MVP_10_train_lfmm2_offset.py and MVP_16_climate_outlier_lfmm.py.
 
 
 
