@@ -42,7 +42,7 @@ export PYTHONPATH="${PYTHONPATH}:/path/to/MVP-offsets/01_src"
 
 ---
 ## Main directories
-These two directories hold scripts (01_src) and jupyter notebooks (02_analysis) used for processing and analyzing data.
+These two directories hold scripts (01_src) and jupyter notebooks (02_analysis) used for processing and analyzing data. Notebooks in 02_analysis are best viewed in a jupyter session (for collapsing and scrolling cell outputs) but are hyperlinked for viewing on nbviewer.org within each directory's README.
 
 ### 01_src
   - executable scripts, see directory's README for more information
