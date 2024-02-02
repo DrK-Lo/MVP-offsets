@@ -1,0 +1,1 @@
+The purpose of these notebooks were to take the saved performance data from each of the methods and combine into a single reformatted file. This was done in chunks of data at a time, each notebook is a separate chunk. All notebooks are doing more or less the same thing.
