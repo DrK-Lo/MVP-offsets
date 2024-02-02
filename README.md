@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/454689056.svg)](https://zenodo.org/doi/10.5281/zenodo.10611682)
+
 # The limits of predicting maladaptation to future environments with genomic data
 
 Anthropogenically driven changes in land use and climate patterns pose unprecedented challenges to species persistence. To understand the extent of these impacts, genomic offset methods have been used to forecast maladaptation of natural populations to future environmental change. However, while their use has become increasingly common, little is known regarding their predictive performance across a wide array of realistic and challenging scenarios. Here, we evaluate four offset methods (Gradient Forests, the Risk-Of-Non-Adaptedness, redundancy analysis, and LFMM2) using an extensive set of simulated datasets that vary demography, adaptive architecture, and the number and spatial patterns of adaptive environments. For each dataset, we train models using either all, adaptive, or neutral marker sets and evaluate performance using in silico common gardens by correlating known fitness with projected offset. Using over 4,850,000 of such evaluations, we find that 1) method performance is largely due to the degree of local adaptation across the metapopulation (*LA*<sub>ΔSA</sub>), 2) adaptive marker sets provide minimal performance advantages, 3) within-landscape performance is variable across gardens and declines when offset models are trained using additional non-adaptive environments, and 4) despite (1), performance declines more rapidly in novel climates for metapopulations with higher *LA*<sub>ΔSA</sub> than lower *LA*<sub>ΔSA</sub>. We discuss the implications of these results for management, assisted gene flow, and assisted migration.
@@ -8,6 +10,14 @@ If you use or are inspired by code in this repository, please cite the manuscrip
 ```
 Lind BM, KE Lotterhos. 2024. The limits of predicting maladaptation to future environments with genomic data. DOI: https://doi.org/10.1101/2024.01.30.577973
 ```
+and/or the code's archive (which mirrors this repository):
+```
+Lind BM. 2024. GitHub.com/ModelValidationProgram/MVP-offsets: Preprint release. Zenodo. DOI: https://doi.org/10.5281/zenodo.10611683
+```
+
+## Funding
+
+This research was funded by NSF-2043905 (KEL) and Northeastern University.
 
 ## Conda environments
 Various [Anaconda environments](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) are used across scripts.  Anaconda (not miniconda) was used for coding environments.
