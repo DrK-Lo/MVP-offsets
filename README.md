@@ -12,7 +12,7 @@ Lind BM, KE Lotterhos. 2024. The limits  of predicting maladaptation to future e
 ```
 and/or the code's archive (which mirrors this repository):
 ```
-Lind BM. 2024. GitHub.com/ModelValidationProgram/MVP-offsets: Preprint release. Zenodo. DOI: https://doi.org/10.5281/zenodo.10611683
+Lind BM. 2024. GitHub.com/ModelValidationProgram/MVP-offsets: Revision release (v1.0.1). Zenodo. DOI: https://doi.org/10.5281/zenodo.11209812
 ```
 
 ## Funding
